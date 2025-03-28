@@ -13,8 +13,8 @@ SQL Server (a través de Docker)
 ## Prerequisites
 
 - Node.js (v14 or higher)
-- Docker and Docker Compose
-- SQL Server (via Docker)
+- Docker(Solo si estan en macOS) si no solo con sql server local
+- SQL Server
 
 ## Instrucciones de configuración
 
