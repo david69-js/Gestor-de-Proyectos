@@ -1,6 +1,14 @@
-# Product Management Backend
+# Backend de Gestión de Productos
 
-A Node.js backend application for product management with features including user authentication, project management, task tracking, file handling, and notifications.
+Backend de Gestión de Productos
+Aplicación backend de Node.js para la gestión de productos con funciones que incluyen autenticación de usuarios, gestión de proyectos, seguimiento de tareas, manejo de archivos y notificaciones.
+
+Requisitos
+Node.js (v14 o superior)
+
+Docker y Docker Compose
+
+SQL Server (a través de Docker)
 
 ## Prerequisites
 
@@ -8,18 +16,29 @@ A Node.js backend application for product management with features including use
 - Docker and Docker Compose
 - SQL Server (via Docker)
 
-## Setup Instructions
+## Instrucciones de configuración
 
-### 1. Clone the Repository
+### 1. Clonar el repositorio
 
 ```bash
 git clone <repository-url>
 cd GestionProductosB
 ```
 
-### 2. Environment Configuration
+### 2. Configuración del entorno
 
-Create a `.env` file in the root directory with the following variables:
+Crea un archivo `.env` en el directorio raíz con las siguientes variables:
+
+```env
+DB_USER=sa
+DB_PASSWORD=YourStrongPassword123
+DB_SERVER=localhost
+DB_DATABASE=GestionProductos
+JWT_SECRET=YourSecretKey
+PORT=3000
+```
+## Opción B: Conexión a una Instancia Local de SQL Server
+Si prefieres conectarte a una instancia local de SQL Server sin usar Docker, asegúrate de tener SQL Server instalado y en ejecución en tu máquina. Luego, modifica las variables de entorno en el archivo .env según corresponda:
 
 ```env
 DB_USER=sa
@@ -62,7 +81,6 @@ Production mode:
 npm start
 ```
 
-The server will start on the port specified in your .env file (default: 3000).
 
 ## API Endpoints
 
