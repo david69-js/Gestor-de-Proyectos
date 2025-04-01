@@ -40,13 +40,21 @@ PORT=3000
 ## Opción B: Conexión a una Instancia Local de SQL Server
 Si prefieres conectarte a una instancia local de SQL Server sin usar Docker, asegúrate de tener SQL Server instalado y en ejecución en tu máquina. Luego, modifica las variables de entorno en el archivo .env según corresponda:
 
+##Posibles problemas con TCP/IP
+#ejecutar en cmd como administrador
+#mmc.exe para configurar el TCP/IP
+net stop MSSQLSERVER
+net start MSSQLSERVER
+
+#Revisar si realiza un cambio
+sqlcmd -S 127.0.0.1 -U sa -P YourStrong#Password -Q "SELECT @@VERSION"
+
 ```env
 DB_USER=sa
-DB_PASSWORD=YourStrongPassword123
-DB_SERVER=localhost
-DB_DATABASE=GestionProductos
-JWT_SECRET=YourSecretKey
-PORT=3000
+DB_PASSWORD="YourStrong#Password" o la contrasenia que se tenga en su instancia local
+DB_SERVER=127.0.0.1
+DB_DATABASE="GestionProyectos"
+DB_PORT=1433
 ```
 
 ### 3. Database Setup
