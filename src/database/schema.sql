@@ -349,17 +349,20 @@ BEGIN
 END;
 GO
 
--- Procedimiento para insertar un proyecto
-DROP PROCEDURE IF EXISTS InsertarProyecto;
+-- Procedimiento para crear un proyecto
+DROP PROCEDURE IF EXISTS CrearProyecto;
 GO
-CREATE PROCEDURE InsertarProyecto
+CREATE PROCEDURE CrearProyecto
     @nombre_proyecto NVARCHAR(100),
-    @descripcion_proyecto NVARCHAR(255),
+    @descripcion NVARCHAR(255),
     @fecha_fin DATETIME
 AS
 BEGIN
     INSERT INTO Proyectos (nombre_proyecto, descripcion, fecha_inicio, fecha_fin)
-    VALUES (@nombre_proyecto, @descripcion_proyecto, GETDATE(), @fecha_fin);
+    VALUES (@nombre_proyecto, @descripcion, GETDATE(), @fecha_fin);
+    
+    -- Return the inserted project ID
+    SELECT SCOPE_IDENTITY() AS id_proyecto;
 END;
 GO
 
@@ -388,6 +391,19 @@ CREATE PROCEDURE ObtenerProyectos
 AS
 BEGIN
     SELECT * FROM Proyectos;
+END;
+GO
+
+-- Procedimiento para obtener un proyecto por ID
+DROP PROCEDURE IF EXISTS ObtenerProyectoPorId;
+GO
+CREATE PROCEDURE ObtenerProyectoPorId
+    @id_proyecto INT
+AS
+BEGIN
+    SELECT *
+    FROM Proyectos
+    WHERE id = @id_proyecto;
 END;
 GO
 

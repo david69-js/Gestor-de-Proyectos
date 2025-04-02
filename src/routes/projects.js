@@ -29,6 +29,7 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
+    console.log(req.body)
     try {
         const newProject = await projectsController.createProject(req.body);
         res.status(201).json(newProject);

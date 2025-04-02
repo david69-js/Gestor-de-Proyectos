@@ -16,7 +16,7 @@ async function getProjectById(id) {
     try {
         const pool = await getConnection();
         const result = await pool.request()
-            .input('id', id)
+            .input('id_proyecto', id)
             .execute('ObtenerProyectoPorId');
 
         if (!result.recordset[0]) return null;
@@ -37,13 +37,15 @@ async function getProjectById(id) {
 }
 
 async function createProject(projectData) {
-    const { nombre_proyecto, descripcion, fecha_fin, participantes } = projectData;
+    const { nombre_proyecto, descripcion, fecha_fin } = projectData;
     const pool = await getConnection();
     
     try {
-        await pool.request().query('BEGIN TRANSACTION');
+        const transaction = pool.transaction();
+        await transaction.begin();
 
-        const projectResult = await pool.request()
+        const request = transaction.request();
+        const projectResult = await request
             .input('nombre_proyecto', nombre_proyecto)
             .input('descripcion', descripcion)
             .input('fecha_fin', fecha_fin)
@@ -51,19 +53,15 @@ async function createProject(projectData) {
 
         const projectId = projectResult.recordset[0].id_proyecto;
 
-        if (participantes && participantes.length > 0) {
-            for (const participanteId of participantes) {
-                await pool.request()
-                    .input('usuario_id', participanteId)
-                    .input('proyecto_id', projectId)
-                    .execute('AsignarUsuarioAProyecto');
-            }
-        }
-
-        await pool.request().query('COMMIT');
+        // Ensure transaction is committed after successful execution
+        await transaction.commit();
         return projectResult.recordset[0];
     } catch (error) {
-        await pool.request().query('ROLLBACK');
+        // Rollback transaction in case of error
+        if (transaction) {
+            await transaction.rollback();
+        }
+        console.error('Error creating project:', error);
         throw error;
     }
 }
