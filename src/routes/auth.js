@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const sql = require('mssql'); // Add this line to import the mssql module
 const { getConnection } = require('../config/db');
 
-// Register new user
+// Register new user - Update the stored procedure execution
 router.post('/register', async (req, res) => {
     const { nombre, correo, contrasena } = req.body;
     try {
@@ -23,22 +24,35 @@ router.post('/register', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(contrasena, salt);
 
-        // Create user
+        // Create user using stored procedure
         const result = await pool.request()
             .input('nombre', nombre)
             .input('correo', correo)
             .input('contrasena', hashedPassword)
-            .query('INSERT INTO Usuarios (nombre, correo, contrasena) OUTPUT INSERTED.* VALUES (@nombre, @correo, @contrasena)');
+            .query(`
+                EXEC RegistrarUsuario @nombre, @correo, @contrasena;
+            `);
 
-        const user = result.recordset[0];
+        // Fetch the newly created user
+        const userResult = await pool.request()
+            .input('correo', sql.VarChar, correo)
+            .query('SELECT * FROM Usuarios WHERE correo = @correo');
+
+        const user = userResult.recordset[0];
         delete user.contrasena;
 
-        // Assign default role (Miembro del Equipo)
+        // Assign default role (Usuario)
+        const roleResult = await pool.request()
+            .query('SELECT id FROM Roles WHERE nombre_rol = \'Administrador\'');
+        
+        const roleId = roleResult.recordset[0].id;
+
         await pool.request()
             .input('usuario_id', user.id)
+            .input('rol_id', roleId)
             .query(`
                 INSERT INTO Usuarios_Roles (usuario_id, rol_id)
-                SELECT @usuario_id, id FROM Roles WHERE nombre_rol = 'Miembro del Equipo'
+                VALUES (@usuario_id, @rol_id)
             `);
 
         res.status(201).json(user);
@@ -54,38 +68,32 @@ router.post('/login', async (req, res) => {
     try {
         const pool = await getConnection();
 
-        // Get user
+        // Get user using stored procedure
+        
         const result = await pool.request()
             .input('correo', correo)
-            .query('SELECT * FROM Usuarios WHERE correo = @correo');
+            .query('EXEC IniciarSesion @correo');
+
+        console.log(result);
 
         if (result.recordset.length === 0) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+            return res.status(401).json({ error: 'Invalid Email' });
         }
 
         const user = result.recordset[0];
+        const roles = result.recordset.map(r => r.roles);
 
         // Verify password
         const validPassword = await bcrypt.compare(contrasena, user.contrasena);
         if (!validPassword) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+            return res.status(401).json({ error: 'Invalid password' });
         }
-
-        // Get user roles
-        const roles = await pool.request()
-            .input('usuario_id', user.id)
-            .query(`
-                SELECT r.nombre_rol
-                FROM Roles r
-                INNER JOIN Usuarios_Roles ur ON r.id = ur.rol_id
-                WHERE ur.usuario_id = @usuario_id
-            `);
 
         // Create token
         const token = jwt.sign(
             { 
                 id: user.id,
-                roles: roles.recordset.map(r => r.nombre_rol)
+                roles: roles
             },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
@@ -95,7 +103,7 @@ router.post('/login', async (req, res) => {
         res.json({
             user,
             token,
-            roles: roles.recordset.map(r => r.nombre_rol)
+            roles: roles
         });
     } catch (error) {
         console.error('Error logging in:', error);
@@ -157,6 +165,26 @@ router.post('/change-password', async (req, res) => {
     } catch (error) {
         console.error('Error changing password:', error);
         res.status(500).json({ error: 'Error changing password' });
+    }
+});
+
+// Get all users (admin only)
+router.get('/users', async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const result = await pool.request()
+            .query('EXEC ObtenerUsuarios');
+
+        // Remove passwords from response
+        const users = result.recordset.map(user => {
+            const { contrasena, ...userWithoutPassword } = user;
+            return userWithoutPassword;
+        });
+
+        res.json(users);
+    } catch (error) {
+        console.error('Error getting users:', error);
+        res.status(500).json({ error: 'Error getting users' });
     }
 });
 

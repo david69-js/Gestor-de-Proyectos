@@ -88,16 +88,6 @@ CREATE TABLE Proyectos_Usuarios (
 );
 END;
 
--- Crear la tabla Participantes_Proyecto solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Participantes_Proyecto' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Participantes_Proyecto (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
-        proyecto_id INT FOREIGN KEY REFERENCES Proyectos(id)
-    );
-END;
-
 -- Crear la tabla Estados_Tarea solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Estados_Tarea' AND xtype = 'U')
 BEGIN
@@ -116,7 +106,7 @@ BEGIN
         nombre_tarea VARCHAR(255),
         descripcion VARCHAR(MAX),
         fecha_creacion DATETIME DEFAULT GETDATE(),
-        fecha_limite DATETIME,
+        fecha_limite DATETIME
         estado_id INT FOREIGN KEY REFERENCES Estados_Tarea(id)
     );
 END;
@@ -214,19 +204,68 @@ BEGIN
     );
 END;
 
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Invitaciones' AND xtype = 'U')
+BEGIN
+    CREATE TABLE Invitaciones (
+        id INT PRIMARY KEY IDENTITY(1,1),
+        correo VARCHAR(255) NOT NULL,  -- Email del usuario invitado
+        equipo_id INT NULL,  -- Puede ser NULL si es una invitación general
+        proyecto_id INT NULL,  -- Puede ser NULL si es una invitación a un equipo
+        rol_id INT NOT NULL,  -- Rol asignado al usuario al aceptar la invitación
+        estado VARCHAR(20) DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aceptada', 'rechazada')),
+        codigo_confirmacion VARCHAR(50) NOT NULL,  -- Código único para la invitación
+        fecha_creacion DATETIME DEFAULT GETDATE(),
+        FOREIGN KEY (equipo_id) REFERENCES Equipos(id) ON DELETE CASCADE,
+        FOREIGN KEY (proyecto_id) REFERENCES Proyectos(id) ON DELETE CASCADE,
+        FOREIGN KEY (rol_id) REFERENCES Roles(id) ON DELETE CASCADE
+    );
+END;
 
 
 -- Procedimiento para insertar un usuario
-DROP PROCEDURE IF EXISTS InsertarUsuario;
+-- Remove existing InsertarUsuario if exists
+DROP PROCEDURE IF EXISTS RegistrarUsuario;
 GO
-CREATE PROCEDURE InsertarUsuario
-    @nombre NVARCHAR(100),
-    @correo NVARCHAR(100),
-    @contrasena NVARCHAR(255)
+
+-- Create RegistrarUsuario procedure
+CREATE PROCEDURE RegistrarUsuario
+    @nombre VARCHAR(255),
+    @correo VARCHAR(255),
+    @contrasena VARCHAR(255)
 AS
 BEGIN
-    INSERT INTO Usuarios (nombre, correo, contrasena)
-    VALUES (@nombre, @correo, @contrasena);
+    BEGIN TRANSACTION
+    BEGIN TRY
+        -- Insert user
+        INSERT INTO Usuarios (nombre, correo, contrasena)
+        VALUES (@nombre, @correo, @contrasena);
+        
+        -- Get inserted user ID
+        DECLARE @usuario_id INT = SCOPE_IDENTITY();
+        
+        -- Assign default role
+        INSERT INTO Usuarios_Roles (usuario_id, rol_id)
+        SELECT @usuario_id, id FROM Roles WHERE nombre_rol = 'Miembro del Equipo';
+        
+        COMMIT TRANSACTION
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION
+        THROW
+    END CATCH
+END;
+GO
+
+-- Create IniciarSesion procedure
+CREATE PROCEDURE IniciarSesion
+    @correo VARCHAR(255)
+AS
+BEGIN
+    SELECT u.*, r.nombre_rol AS roles
+    FROM Usuarios u
+    INNER JOIN Usuarios_Roles ur ON u.id = ur.usuario_id
+    INNER JOIN Roles r ON ur.rol_id = r.id
+    WHERE u.correo = @correo;
 END;
 GO
 

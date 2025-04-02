@@ -19,9 +19,13 @@ const baseConfig = {
 async function getConnection() {
   let pool;
   try {
-    // 1. Primero intentar conexión directa a la BD
+    // 1. First try direct connection
     pool = await sql.connect({ ...baseConfig, database: process.env.DB_DATABASE });
-    console.log("✅ Conexión directa exitosa a la BD existente");
+    console.log("✅ Connection to existing DB successful");
+    
+    // Always verify schema version
+    await verifySchemaVersion(pool);
+    
     return pool;
   } catch (error) {
     // 2. Si falla, intentar crear la BD
@@ -61,6 +65,37 @@ async function getConnection() {
     } catch (creationError) {
       console.error('❌ Error al recrear la base de datos:', creationError);
       throw creationError;
+    }
+  }
+}
+
+// Add new helper function
+async function verifySchemaVersion(pool) {
+  try {
+    // Check if procedures exist
+    const result = await pool.request()
+      .query(`SELECT OBJECT_ID('RegistrarUsuario', 'P') as procId`);
+      
+    if (result.recordset[0].procId === null) {
+      console.log("🔄 Updating database schema...");
+      await executeSchemaScript(pool);
+    }
+  } catch (error) {
+    console.error('Schema verification failed:', error);
+    throw error;
+  }
+}
+
+// Extract schema execution logic
+async function executeSchemaScript(pool) {
+  const sqlScript = fs.readFileSync(path.join(__dirname, '../database/schema.sql'), 'utf-8');
+  const batches = sqlScript.split(/^GO$/gm).filter(q => q.trim());
+  
+  for (const batch of batches) {
+    try {
+      await pool.request().query(batch);
+    } catch (queryError) {
+      console.warn(`⚠️ Batch execution warning: ${queryError.message}`);
     }
   }
 }
