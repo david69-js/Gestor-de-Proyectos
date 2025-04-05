@@ -257,7 +257,9 @@ END;
 GO
 
 -- Create IniciarSesion procedure
-CREATE PROCEDURE IniciarSesion
+DROP PROCEDURE IF EXISTS  IniciarSesion
+GO
+CREATE PROCEDURE ObtenerUsuarios
     @correo VARCHAR(255)
 AS
 BEGIN
@@ -459,5 +461,102 @@ BEGIN
     BEGIN
         DELETE FROM Tareas WHERE id = @id_tarea;
     END;
+END;
+GO
+
+-- Procedimiento para obtener notificaciones de un usuario
+DROP PROCEDURE IF EXISTS ObtenerNotificacionesUsuario;
+GO
+CREATE PROCEDURE ObtenerNotificacionesUsuario
+    @usuario_id INT
+AS
+BEGIN
+    SELECT *
+    FROM Notificaciones
+    WHERE usuario_id = @usuario_id;
+END;
+GO
+
+-- Procedimiento para crear una notificación
+DROP PROCEDURE IF EXISTS CrearNotificacion;
+GO
+CREATE PROCEDURE CrearNotificacion
+    @usuario_id INT,
+    @mensaje NVARCHAR(255)
+AS
+BEGIN
+    INSERT INTO Notificaciones (usuario_id, mensaje, fecha_notificacion, leida)
+    VALUES (@usuario_id, @mensaje, GETDATE(), 0);
+    
+    -- Return the inserted notification
+    SELECT SCOPE_IDENTITY() AS id_notificacion;
+END;
+GO
+
+-- Procedimiento para actualizar una tarea
+DROP PROCEDURE IF EXISTS ActualizarTarea;
+GO
+CREATE PROCEDURE ActualizarTarea
+    @id_tarea INT,
+    @proyecto_id INT,
+    @nombre_tarea NVARCHAR(255),
+    @descripcion NVARCHAR(MAX),
+    @fecha_limite DATETIME,
+    @estado_id INT
+AS
+BEGIN
+    UPDATE Tareas
+    SET proyecto_id = @proyecto_id,
+        nombre_tarea = @nombre_tarea,
+        descripcion = @descripcion,
+        fecha_limite = @fecha_limite,
+        estado_id = @estado_id
+    WHERE id = @id_tarea;
+    
+    SELECT * FROM Tareas WHERE id = @id_tarea;
+END;
+GO
+
+-- Procedimiento para desasignar un usuario de una tarea
+DROP PROCEDURE IF EXISTS DesasignarUsuarioDeTarea;
+GO
+CREATE PROCEDURE DesasignarUsuarioDeTarea
+    @tarea_id INT,
+    @usuario_id INT
+AS
+BEGIN
+    DELETE FROM Usuarios_Tareas
+    WHERE tarea_id = @tarea_id AND usuario_id = @usuario_id;
+END;
+GO
+
+-- Procedimiento para agregar un miembro a un equipo
+DROP PROCEDURE IF EXISTS AgregarMiembroEquipo;
+GO
+CREATE PROCEDURE AgregarMiembroEquipo
+    @equipo_id INT,
+    @usuario_id INT,
+    @rol NVARCHAR(50)
+AS
+BEGIN
+    INSERT INTO Miembros_Equipo (equipo_id, usuario_id, rol)
+    VALUES (@equipo_id, @usuario_id, @rol);
+    
+    SELECT * FROM Miembros_Equipo WHERE equipo_id = @equipo_id AND usuario_id = @usuario_id;
+END;
+GO
+
+-- Procedimiento para crear un equipo
+DROP PROCEDURE IF EXISTS CrearEquipo;
+GO
+CREATE PROCEDURE CrearEquipo
+    @nombre_equipo NVARCHAR(255),
+    @descripcion NVARCHAR(MAX)
+AS
+BEGIN
+    INSERT INTO Equipos (nombre_equipo, descripcion)
+    VALUES (@nombre_equipo, @descripcion);
+    
+    SELECT SCOPE_IDENTITY() AS id_equipo;
 END;
 GO
