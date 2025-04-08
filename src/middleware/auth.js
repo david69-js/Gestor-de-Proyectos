@@ -1,6 +1,12 @@
 const jwt = require('jsonwebtoken');
 const { getConnection } = require('../config/db');
 
+// Helper function to handle errors
+const handleError = (res, error, message) => {
+    console.error(message, error);
+    res.status(500).json({ error: message });
+};
+
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
@@ -41,8 +47,7 @@ const checkRole = (requiredRoles) => {
 
             next();
         } catch (error) {
-            console.error('Error checking user roles:', error);
-            res.status(500).json({ error: 'Error checking user permissions' });
+            handleError(res, error, 'Error checking user roles');
         }
     };
 };
@@ -66,8 +71,7 @@ const checkProjectParticipation = async (req, res, next) => {
 
         next();
     } catch (error) {
-        console.error('Error checking project participation:', error);
-        res.status(500).json({ error: 'Error checking project participation' });
+        handleError(res, error, 'Error checking project participation');
     }
 };
 
@@ -90,8 +94,7 @@ const checkTeamMembership = async (req, res, next) => {
 
         next();
     } catch (error) {
-        console.error('Error checking team membership:', error);
-        res.status(500).json({ error: 'Error checking team membership' });
+        handleError(res, error, 'Error checking team membership');
     }
 };
 
@@ -114,8 +117,7 @@ const checkTaskAssignment = async (req, res, next) => {
 
         next();
     } catch (error) {
-        console.error('Error checking task assignment:', error);
-        res.status(500).json({ error: 'Error checking task assignment' });
+        handleError(res, error, 'Error checking task assignment');
     }
 };
 
