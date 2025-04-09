@@ -10,12 +10,16 @@ IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios' AND xtype = 'U')
 BEGIN
     CREATE TABLE Usuarios (
         id INT PRIMARY KEY IDENTITY(1,1),
-        nombre VARCHAR(255),
-        correo VARCHAR(255) UNIQUE,
-        contrasena VARCHAR(255),
+        nombre VARCHAR(100) NOT NULL,
+        correo VARCHAR(100) UNIQUE NOT NULL,
+        contrasena VARCHAR(255) NOT NULL,
+        imagen_perfil VARCHAR(255), -- opcional
+        numero_telefono VARCHAR(20), -- opcional
+        fecha_nacimiento DATE, -- opcional
         fecha_registro DATETIME DEFAULT GETDATE()
     );
-END;
+END
+
 
 -- Crear la tabla Equipos solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Equipos' AND xtype = 'U')
@@ -222,39 +226,34 @@ BEGIN
 END;
 
 
--- Procedimiento para insertar un usuario
 -- Remove existing InsertarUsuario if exists
 DROP PROCEDURE IF EXISTS RegistrarUsuario;
 GO
 
 -- Create RegistrarUsuario procedure
 CREATE PROCEDURE RegistrarUsuario
-    @nombre VARCHAR(255),
-    @correo VARCHAR(255),
-    @contrasena VARCHAR(255)
+    @nombre VARCHAR(100),
+    @correo VARCHAR(100),
+    @contrasena VARCHAR(255),
+    @imagen_perfil VARCHAR(255) = NULL, -- Optional
+    @numero_telefono VARCHAR(20) = NULL, -- Optional
+    @fecha_nacimiento DATE = NULL -- Optional
 AS
 BEGIN
-    BEGIN TRANSACTION
-    BEGIN TRY
-        -- Insert user
-        INSERT INTO Usuarios (nombre, correo, contrasena)
-        VALUES (@nombre, @correo, @contrasena);
-        
-        -- Get inserted user ID
-        DECLARE @usuario_id INT = SCOPE_IDENTITY();
-        
-        -- Assign default role
-        INSERT INTO Usuarios_Roles (usuario_id, rol_id)
-        SELECT @usuario_id, id FROM Roles WHERE nombre_rol = 'Miembro del Equipo';
-        
-        COMMIT TRANSACTION
-    END TRY
-    BEGIN CATCH
-        ROLLBACK TRANSACTION
-        THROW
-    END CATCH
+    -- Insert user into the Usuarios table
+    INSERT INTO Usuarios (nombre, correo, contrasena, imagen_perfil, numero_telefono, fecha_nacimiento)
+    VALUES (@nombre, @correo, @contrasena, @imagen_perfil, @numero_telefono, @fecha_nacimiento);
+
+    -- Get the inserted user ID
+    DECLARE @usuario_id INT = SCOPE_IDENTITY();
+
+    -- Assign default role for the user (e.g., 'Miembro del Equipo')
+    INSERT INTO Usuarios_Roles (usuario_id, rol_id)
+    SELECT @usuario_id, id FROM Roles WHERE nombre_rol = 'Miembro del Equipo';
+    
 END;
 GO
+
 
 -- Ensure all columns are correctly defined in their respective tables
 -- Example table definition for Notificaciones
@@ -609,12 +608,16 @@ GO
 CREATE PROCEDURE ActualizarUsuario
     @id INT,
     @nombre NVARCHAR(255),
-    @correo NVARCHAR(255)
+    @imagen_perfil NVARCHAR(255) = NULL, -- Optional
+    @numero_telefono NVARCHAR(20) = NULL, -- Optional
+    @fecha_nacimiento DATE = NULL -- Optional
 AS
 BEGIN
     UPDATE Usuarios
     SET nombre = @nombre,
-        correo = @correo
+        imagen_perfil = @imagen_perfil,
+        numero_telefono = @numero_telefono,
+        fecha_nacimiento = @fecha_nacimiento
     WHERE id = @id;
     
     SELECT * FROM Usuarios WHERE id = @id;

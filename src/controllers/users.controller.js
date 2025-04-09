@@ -56,33 +56,6 @@ async function changePassword(userId, passwordData) {
     }
 }
 
-async function updateUser(id, userData) {
-    const { nombre, correo } = userData;
-    try {
-        const pool = await getConnection();
-        const result = await pool.request()
-            .input('id', id)
-            .input('nombre', nombre)
-            .input('correo', correo)
-            .execute('ActualizarUsuario');
-
-        if (result.recordset.length > 0) {
-            const user = result.recordset[0];
-            delete user.contrasena;
-            return user;
-        } else {
-            throw new Error('User not found');
-        }
-    } catch (error) {
-        console.error('Error updating user:', error);
-        if (error.number === 2627) {
-            throw new Error('Email already exists');
-        } else {
-            throw error;
-        }
-    }
-}
-
 async function deleteUser(id) {
     try {
         const pool = await getConnection();
@@ -113,11 +86,31 @@ async function getUserRoles(id) {
         throw error;
     }
 }
+async function updateUserDetails(userId, userDetails) {
+    const { nombre ,imagen_perfil, numero_telefono, fecha_nacimiento } = userDetails;
+    const pool = await getConnection();
 
+    console.log(userId)
+    try {
+        // Update user details using the stored procedure
+        await pool.request()
+            .input('id', userId)
+            .input('nombre', nombre)
+            .input('imagen_perfil', imagen_perfil || null)
+            .input('numero_telefono', numero_telefono || null)
+            .input('fecha_nacimiento', fecha_nacimiento || null)
+            .execute('ActualizarUsuario');
+
+        console.log('User details updated successfully');
+    } catch (error) {
+        console.error('Error updating user details:', error);
+        throw error;
+    }
+}
 module.exports = {
     getUserById,
-    updateUser,
     deleteUser,
     changePassword,
-    getUserRoles
+    getUserRoles,
+    updateUserDetails
 };

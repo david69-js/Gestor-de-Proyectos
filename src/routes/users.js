@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-
 const {
     getUserById,
     updateUser,
     deleteUser,
     getUserRoles,
-    changePassword
+    changePassword,
+    updateUserDetails
 } = require('../controllers/users.controller.js');
 
 
@@ -31,6 +31,17 @@ router.post('/change-password', async (req, res) => {
         res.status(401).json({ error: error.message });
     }
 });
+
+router.put('/update-user', async (req, res) => {
+    try {
+        const message = await updateUserDetails(req.user.id, req.body);
+        res.json(message);
+    } catch (error) {
+        console.error('Error changing password:', error);
+        res.status(401).json({ error: error.message });
+    }
+});
+
 
 // Update user
 router.put('/:id', async (req, res) => {

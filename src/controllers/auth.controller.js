@@ -3,10 +3,10 @@ const jwt = require('jsonwebtoken');
 const { getConnection } = require('../config/db');
 
 async function registerUser(userData) {
-    const { nombre, correo, contrasena } = userData;
-    try {
-        const pool = await getConnection();
+    const { nombre, correo, contrasena, imagen_perfil, numero_telefono, fecha_nacimiento } = userData;
+    const pool = await getConnection();
 
+    try {
         // Check if user already exists
         const userExists = await pool.request()
             .input('correo', correo)
@@ -20,30 +20,38 @@ async function registerUser(userData) {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(contrasena, salt);
 
-        // Create user
+        // Create user without using transaction
         const result = await pool.request()
             .input('nombre', nombre)
             .input('correo', correo)
             .input('contrasena', hashedPassword)
-            .query('INSERT INTO Usuarios (nombre, correo, contrasena) OUTPUT INSERTED.* VALUES (@nombre, @correo, @contrasena)');
+            .input('imagen_perfil', imagen_perfil || null)
+            .input('numero_telefono', numero_telefono || null)
+            .input('fecha_nacimiento', fecha_nacimiento || null)
+            .execute('RegistrarUsuario');
 
-        const user = result.recordset[0];
-        delete user.contrasena;
+        // Check if result contains the user ID
+        const userId = result.recordset[0]?.usuario_id;
 
-        // Assign default role (Miembro del Equipo)
-        await pool.request()
-            .input('usuario_id', user.id)
-            .query(`
-                INSERT INTO Usuarios_Roles (usuario_id, rol_id)
-                SELECT @usuario_id, id FROM Roles WHERE nombre_rol = 'Miembro del Equipo'
-            `);
+        if (!userId) {
+            throw new Error('User registration failed, no user ID returned.');
+        }
 
-        return user;
+        // Return the user with the ID
+        return {
+            id_usuario: userId,
+            nombre,
+            correo,
+            imagen_perfil,
+            numero_telefono,
+            fecha_nacimiento
+        };
     } catch (error) {
         console.error('Error registering user:', error);
         throw error;
     }
 }
+
 
 async function loginUser(userData) {
     const { correo, contrasena } = userData;
@@ -98,6 +106,8 @@ async function loginUser(userData) {
         throw error;
     }
 }
+
+
 
 
 module.exports = {
