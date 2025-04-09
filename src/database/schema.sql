@@ -560,3 +560,49 @@ BEGIN
     SELECT SCOPE_IDENTITY() AS id_equipo;
 END;
 GO
+
+-- Procedimiento para obtener un usuario por ID
+DROP PROCEDURE IF EXISTS ObtenerUsuarioPorId;
+GO
+CREATE PROCEDURE ObtenerUsuarioPorId
+    @id INT
+AS
+BEGIN
+    SELECT id, nombre, correo, fecha_registro
+    FROM Usuarios
+    WHERE id = @id;
+END;
+GO
+
+
+-- Procedimiento para actualizar un usuario
+DROP PROCEDURE IF EXISTS ActualizarUsuario;
+GO
+CREATE PROCEDURE ActualizarUsuario
+    @id INT,
+    @nombre NVARCHAR(255),
+    @correo NVARCHAR(255)
+AS
+BEGIN
+    UPDATE Usuarios
+    SET nombre = @nombre,
+        correo = @correo
+    WHERE id = @id;
+    
+    SELECT * FROM Usuarios WHERE id = @id;
+END;
+GO
+
+-- Procedimiento para obtener roles de un usuario
+DROP PROCEDURE IF EXISTS ObtenerRolesDeUsuario;
+GO
+CREATE PROCEDURE ObtenerRolesDeUsuario
+    @id INT
+AS
+BEGIN
+    SELECT r.id, r.nombre_rol
+    FROM Roles r
+    INNER JOIN Usuarios_Roles ur ON r.id = ur.rol_id
+    WHERE ur.usuario_id = @id;
+END;
+GO

@@ -1,23 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const {
-    getAllUsers,
     getUserById,
     updateUser,
     deleteUser,
     getUserRoles
 } = require('../controllers/users.controller.js');
 
-// Get all users
-router.get('/', async (req, res) => {
-    try {
-        const users = await getAllUsers();
-        res.json(users);
-    } catch (error) {
-        console.error('Error getting users:', error);
-        res.status(500).json({ error: 'Error getting users' });
-    }
-});
 
 // Get user by ID
 router.get('/:id', async (req, res) => {
