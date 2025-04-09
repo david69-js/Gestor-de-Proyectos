@@ -256,18 +256,46 @@ BEGIN
 END;
 GO
 
--- Create IniciarSesion procedure
-DROP PROCEDURE IF EXISTS  IniciarSesion
+-- Ensure all columns are correctly defined in their respective tables
+-- Example table definition for Notificaciones
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Notificaciones' AND xtype = 'U')
+BEGIN
+    CREATE TABLE Notificaciones (
+        id INT PRIMARY KEY IDENTITY(1,1),
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
+        mensaje VARCHAR(255),
+        fecha_notificacion DATETIME DEFAULT GETDATE(),
+        leida BIT DEFAULT 0 -- Ensure 'leida' column is defined
+    );
+END;
 GO
-CREATE PROCEDURE ObtenerUsuarios
-    @correo VARCHAR(255)
+
+-- Example table definition for Miembros_Equipo
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Miembros_Equipo' AND xtype = 'U')
+BEGIN
+    CREATE TABLE Miembros_Equipo (
+        id INT PRIMARY KEY IDENTITY(1,1),
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
+        equipo_id INT FOREIGN KEY REFERENCES Equipos(id),
+        rol NVARCHAR(50) -- Ensure 'rol' column is defined
+    );
+END;
+GO
+
+-- Check and correct any syntax errors related to 'estado_id'
+-- Example procedure definition
+DROP PROCEDURE IF EXISTS InsertarTarea;
+GO
+CREATE PROCEDURE InsertarTarea
+    @proyecto_id INT,
+    @titulo NVARCHAR(100),
+    @descripcion NVARCHAR(255),
+    @fecha_limite DATETIME,
+    @estado_id INT -- Ensure 'estado_id' is correctly used
 AS
 BEGIN
-    SELECT u.*, r.nombre_rol AS roles
-    FROM Usuarios u
-    INNER JOIN Usuarios_Roles ur ON u.id = ur.usuario_id
-    INNER JOIN Roles r ON ur.rol_id = r.id
-    WHERE u.correo = @correo;
+    INSERT INTO Tareas (proyecto_id, nombre_tarea, descripcion, fecha_creacion, fecha_limite, estado_id)
+    VALUES (@proyecto_id, @titulo, @descripcion, GETDATE(), @fecha_limite, @estado_id);
 END;
 GO
 

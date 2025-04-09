@@ -1,4 +1,7 @@
 const express = require('express');
+const {
+    getConnection
+} = require('../config/db');
 const router = express.Router();
 const {
     registerUser,

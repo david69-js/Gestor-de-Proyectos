@@ -99,7 +99,8 @@ async function loginUser(userData) {
     }
 }
 
+
 module.exports = {
     registerUser,
-    loginUser
+    loginUser,
 };

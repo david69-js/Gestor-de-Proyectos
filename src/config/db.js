@@ -71,13 +71,32 @@ async function getConnection() {
 
 async function verifySchemaVersion(pool) {
   try {
-    // Check if procedures exist
-    const result = await pool.request()
-      .query(`SELECT OBJECT_ID('RegistrarUsuario', 'P') as procId`);
+    const procedures = [
+      'RegistrarUsuario',
+      'CambiarContrasena',
+      'ObtenerUsuarioPorId',
+      'ActualizarUsuario',
+      'EliminarUsuario',
+      'ObtenerRolesDeUsuario',
+      'InsertarTarea',
+    ];
+
+    // Check if all procedures exist
+    const missingProcedures = [];
+    for (const proc of procedures) {
+      const result = await pool.request()
+        .query(`SELECT OBJECT_ID('${proc}', 'P') as procId`);
       
-    if (result.recordset[0].procId === null) {
-      console.log("🔄 Updating database schema...");
+      if (result.recordset[0].procId === null) {
+        missingProcedures.push(proc);
+      }
+    }
+
+    if (missingProcedures.length > 0) {
+      console.log(`🔄 Missing procedures: ${missingProcedures.join(', ')}. Updating database schema...`);
       await executeSchemaScript(pool);
+    } else {
+      console.log("✅ All procedures are present.");
     }
   } catch (error) {
     console.error('Schema verification failed:', error);
