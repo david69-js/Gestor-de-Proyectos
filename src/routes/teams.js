@@ -28,5 +28,3 @@ router.post('/:id/members', checkRole(['Administrador', 'Líder de Equipo']), ch
 router.delete('/:id/members/:userId', checkRole(['Administrador', 'Líder de Equipo']), checkTeamMembership, teamsController.removeTeamMember);
 
 module.exports = router;
-
-module.exports = router;

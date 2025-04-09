@@ -15,13 +15,14 @@ const verifyToken = (req, res, next) => {
         return res.status(401).json({ error: 'No token provided' });
     }
 
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(401).json({ error: 'Failed to authenticate token' });
+        }
+
+        req.user = decoded; // Attach decoded user info to req.user
         next();
-    } catch (error) {
-        return res.status(401).json({ error: 'Invalid token' });
-    }
+    });
 };
 
 // Middleware to check user roles

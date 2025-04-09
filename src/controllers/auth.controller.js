@@ -99,45 +99,7 @@ async function loginUser(userData) {
     }
 }
 
-async function changePassword(userId, passwordData) {
-    const { contrasena_actual, nueva_contrasena } = passwordData;
-    try {
-        const pool = await getConnection();
-
-        // Get current user
-        const user = await pool.request()
-            .input('id', userId)
-            .query('SELECT * FROM Usuarios WHERE id = @id');
-
-        if (user.recordset.length === 0) {
-            throw new Error('User not found');
-        }
-
-        // Verify current password
-        const validPassword = await bcrypt.compare(contrasena_actual, user.recordset[0].contrasena);
-        if (!validPassword) {
-            throw new Error('Current password is incorrect');
-        }
-
-        // Hash new password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(nueva_contrasena, salt);
-
-        // Update password
-        await pool.request()
-            .input('id', userId)
-            .input('contrasena', hashedPassword)
-            .query('UPDATE Usuarios SET contrasena = @contrasena WHERE id = @id');
-
-        return { message: 'Password updated successfully' };
-    } catch (error) {
-        console.error('Error changing password:', error);
-        throw error;
-    }
-}
-
 module.exports = {
     registerUser,
-    loginUser,
-    changePassword
+    loginUser
 };

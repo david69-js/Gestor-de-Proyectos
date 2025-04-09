@@ -606,3 +606,22 @@ BEGIN
     WHERE ur.usuario_id = @id;
 END;
 GO
+
+-- Drop the procedure if it already exists
+DROP PROCEDURE IF EXISTS CambiarContrasena;
+GO
+
+-- Create the stored procedure
+CREATE PROCEDURE CambiarContrasena
+    @userId INT,
+    @nueva_contrasena NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Update password
+    UPDATE Usuarios
+    SET contrasena = @nueva_contrasena
+    WHERE id = @userId;
+END;
+GO

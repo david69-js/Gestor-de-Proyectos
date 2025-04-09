@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
-// Configuración base sin especificar BD (para conexión inicial)
+// Base configuration for initial connection
 const baseConfig = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
@@ -19,57 +19,56 @@ const baseConfig = {
 async function getConnection() {
   let pool;
   try {
-    // 1. First try direct connection
+    // Attempt direct connection to the specified database
     pool = await sql.connect({ ...baseConfig, database: process.env.DB_DATABASE });
     console.log("✅ Connection to existing DB successful");
     
-    // Always verify schema version
+    // Verify schema version
     await verifySchemaVersion(pool);
     
     return pool;
   } catch (error) {
-    // 2. Si falla, intentar crear la BD
-    console.log("⚠️ Intentando recrear la base de datos...");
+    console.log("⚠️ Attempting to recreate the database...");
     
     try {
-      // Conectar al servidor sin BD específica (usa 'master')
+      // Connect to server without specifying a database (use 'master')
       const adminPool = await sql.connect(baseConfig);
       
-      // Verificar y crear BD si no existe
+      // Verify and create database if it doesn't exist
       await adminPool.request().query(`
         IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '${process.env.DB_DATABASE}')
         CREATE DATABASE ${process.env.DB_DATABASE}
       `);
       
-      // Cerrar conexión temporal
       await adminPool.close();
       
-      // 3. Conectar a la nueva BD
+      // Connect to the newly created database
       pool = await sql.connect({ ...baseConfig, database: process.env.DB_DATABASE });
       
-      // 4. Ejecutar script SQL
+      // Execute SQL script
       const sqlScript = fs.readFileSync(path.join(__dirname, '../database/schema.sql'), 'utf-8');
+        console.log(sqlScript)
+     
       const queries = sqlScript.split('GO').filter(q => q.trim());
       
       for (const query of queries) {
         try {
           await pool.request().query(query);
         } catch (queryError) {
-          console.warn(`⚠️ Advertencia en consulta: ${queryError.message}`);
+          console.warn(`⚠️ Warning in query: ${queryError.message}`);
         }
       }
       
-      console.log("✅ Base de datos y esquema recreados exitosamente");
+      console.log("✅ Database and schema recreated successfully");
       return pool;
       
     } catch (creationError) {
-      console.error('❌ Error al recrear la base de datos:', creationError);
+      console.error('❌ Error recreating the database:', creationError);
       throw creationError;
     }
   }
 }
 
-// Add new helper function
 async function verifySchemaVersion(pool) {
   try {
     // Check if procedures exist
@@ -86,7 +85,6 @@ async function verifySchemaVersion(pool) {
   }
 }
 
-// Extract schema execution logic
 async function executeSchemaScript(pool) {
   const sqlScript = fs.readFileSync(path.join(__dirname, '../database/schema.sql'), 'utf-8');
   const batches = sqlScript.split(/^GO$/gm).filter(q => q.trim());

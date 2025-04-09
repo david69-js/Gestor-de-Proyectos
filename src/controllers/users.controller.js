@@ -1,4 +1,5 @@
 const { getConnection } = require('../config/db');
+const bcrypt = require('bcryptjs');
 
 async function getUserById(id) {
     try {
@@ -14,6 +15,43 @@ async function getUserById(id) {
         }
     } catch (error) {
         console.error('Error getting user:', error);
+        throw error;
+    }
+}
+
+async function changePassword(userId, passwordData) {
+    const { contrasena_actual, nueva_contrasena } = passwordData;
+    try {
+        const pool = await getConnection();
+
+        // Get current user
+        const user = await pool.request()
+            .input('id', userId)
+            .query('SELECT contrasena FROM Usuarios WHERE id = @id');
+
+        if (user.recordset.length === 0) {
+            throw new Error('User not found');
+        }
+
+        // Verify current password
+        const validPassword = await bcrypt.compare(contrasena_actual, user.recordset[0].contrasena);
+        if (!validPassword) {
+            throw new Error('Current password is incorrect');
+        }
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(nueva_contrasena, salt);
+
+        // Update password using stored procedure
+        await pool.request()
+            .input('userId', userId)
+            .input('nueva_contrasena', hashedPassword)
+            .execute('CambiarContrasena');
+
+        return { message: 'Password updated successfully' };
+    } catch (error) {
+        console.error('Error changing password:', error);
         throw error;
     }
 }
@@ -80,5 +118,6 @@ module.exports = {
     getUserById,
     updateUser,
     deleteUser,
+    changePassword,
     getUserRoles
 };

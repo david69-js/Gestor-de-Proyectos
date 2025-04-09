@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
+
 const {
     getUserById,
     updateUser,
     deleteUser,
-    getUserRoles
+    getUserRoles,
+    changePassword
 } = require('../controllers/users.controller.js');
 
 
@@ -19,6 +21,16 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// Change password
+router.post('/change-password', async (req, res) => {
+    try {
+        const message = await changePassword(req.user.id, req.body);
+        res.json(message);
+    } catch (error) {
+        console.error('Error changing password:', error);
+        res.status(401).json({ error: error.message });
+    }
+});
 
 // Update user
 router.put('/:id', async (req, res) => {
