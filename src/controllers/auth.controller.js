@@ -91,7 +91,7 @@ async function loginUser(userData) {
         // Get user
         const result = await pool.request()
             .input('correo', correo)
-            .query('SELECT * FROM Usuarios WHERE correo = @correo');
+            .query(`SELECT * FROM Usuarios WHERE correo = @correo`);
 
         if (result.recordset.length === 0) {
             throw new Error('Invalid credentials');
@@ -111,8 +111,8 @@ async function loginUser(userData) {
             .query(`
                 SELECT r.nombre_rol
                 FROM Roles r
-                INNER JOIN Usuarios_Roles ur ON r.id = ur.rol_id
-                WHERE ur.usuario_id = @usuario_id
+                INNER JOIN Usuarios_Organizaciones ur ON r.id = ur.rol_organizacion
+                WHERE ur.id_usuario = @usuario_id;
             `);
 
         // Create token
