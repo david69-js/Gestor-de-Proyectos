@@ -225,6 +225,21 @@ BEGIN
     );
 END;
 
+-- Ensure all columns are correctly defined in their respective tables
+-- Example table definition for Notificaciones
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Notificaciones' AND xtype = 'U')
+BEGIN
+    CREATE TABLE Notificaciones (
+        id INT PRIMARY KEY IDENTITY(1,1),
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
+        mensaje VARCHAR(255),
+        fecha_notificacion DATETIME DEFAULT GETDATE(),
+        leida BIT DEFAULT 0 -- Ensure 'leida' column is defined
+    );
+END;
+GO
+
+
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Proyectos' AND xtype = 'U')
 BEGIN
 CREATE TABLE Usuarios_Proyectos (
@@ -264,55 +279,76 @@ CREATE TABLE Usuarios_Organizaciones (
 );
 END;
 
--- Remove existing InsertarUsuario if exists
-DROP PROCEDURE IF EXISTS RegistrarUsuario;
-GO
 
--- Create RegistrarUsuario procedure
-CREATE PROCEDURE RegistrarUsuario
-    @nombre VARCHAR(100),
-    @correo VARCHAR(100),
-    @contrasena VARCHAR(255),
-    @imagen_perfil VARCHAR(255) = NULL, -- Optional
-    @numero_telefono VARCHAR(20) = NULL, -- Optional
-    @fecha_nacimiento DATE = NULL -- Optional
+DROP PROCEDURE IF EXISTS sp_CrearOrganizacion;
+GO
+CREATE PROCEDURE sp_CrearOrganizacion
+  @nombreOrganizacion NVARCHAR(255)
 AS
 BEGIN
-    -- Insert user into the Usuarios table
-    INSERT INTO Usuarios (nombre, correo, contrasena, imagen_perfil, numero_telefono, fecha_nacimiento)
-    VALUES (@nombre, @correo, @contrasena, @imagen_perfil, @numero_telefono, @fecha_nacimiento);
+  SET NOCOUNT ON;
+  INSERT INTO Organizaciones (nombre)
+  VALUES (@nombreOrganizacion);
 
-    -- Get the inserted user ID
-    DECLARE @usuario_id INT = SCOPE_IDENTITY();
-
-    -- Assign default role for the user (e.g., 'Miembro del Equipo')
-    INSERT INTO Usuarios_Roles (usuario_id, rol_id)
-    SELECT @usuario_id, id FROM Roles WHERE nombre_rol = 'Miembro del Equipo';
-    
-END;
+  SELECT SCOPE_IDENTITY() AS id_organizacion;
+END
 GO
 
---Creaate user with invitacion or without invitacion
-DROP PROCEDURE IF EXISTS sp_RegistrarUsuarioConInvitacion;
+
+DROP PROCEDURE IF EXISTS sp_AsignarUsuarioAOrganizacion;
+GO
+CREATE PROCEDURE sp_AsignarUsuarioAOrganizacion
+  @id_usuario INT,
+  @id_organizacion INT,
+  @rol NVARCHAR(50)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  INSERT INTO Usuarios_Organizaciones (usuario_id, organizacion_id, rol_organizacion)
+  VALUES (@id_usuario, @id_organizacion, @rol);
+END
 GO
 
-CREATE PROCEDURE sp_RegistrarUsuarioConInvitacion
-  @nombre NVARCHAR(50),
-  @correo NVARCHAR(50),
-  @contrasena NVARCHAR(255),
-  @imagen_perfil NVARCHAR(100) = NULL,
-  @numero_telefono NVARCHAR(20) = NULL,
-  @fecha_nacimiento DATE = NULL,
-  @token NVARCHAR(100) = NULL
+DROP PROCEDURE IF EXISTS sp_AsignarUsuarioAProyecto;
+GO
+CREATE PROCEDURE sp_AsignarUsuarioAProyecto
+  @id_usuario INT,
+  @id_proyecto INT,
+  @rol NVARCHAR(50)
 AS
 BEGIN
   SET NOCOUNT ON;
 
-  -- Verificar si ya existe el usuario
+  INSERT INTO Proyectos_Usuarios (usuario_id, proyecto_id, rol)
+  VALUES (@id_usuario, @id_proyecto, @rol);
+END
+GO
+
+DROP PROCEDURE IF EXISTS sp_RegistrarUsuarioConOrganizacionYProyecto;
+GO
+IF OBJECT_ID('sp_RegistrarUsuarioConInvitacion', 'P') IS NOT NULL
+  DROP PROCEDURE sp_RegistrarUsuarioConInvitacion;
+GO
+
+CREATE PROCEDURE sp_RegistrarUsuarioConInvitacion
+  @nombre NVARCHAR(100),
+  @correo NVARCHAR(100),
+  @contrasena NVARCHAR(255),
+  @imagen_perfil NVARCHAR(255) = NULL,
+  @numero_telefono NVARCHAR(20) = NULL,
+  @fecha_nacimiento DATE = NULL,
+  @rol NVARCHAR(50), -- 'admin', 'colaborador', 'cliente'
+  @id_organizacion INT = NULL,
+  @nombre_organizacion NVARCHAR(100),
+  @id_proyecto INT = NULL
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  -- Validación básica
   IF EXISTS (SELECT 1 FROM Usuarios WHERE correo = @correo)
   BEGIN
-    RAISERROR('El usuario ya existe.', 16, 1);
-    RETURN;
+    THROW 50001, 'El correo ya está registrado.', 1;
   END
 
   -- Insertar usuario
@@ -320,76 +356,31 @@ BEGIN
   VALUES (@nombre, @correo, @contrasena, @imagen_perfil, @numero_telefono, @fecha_nacimiento);
 
   DECLARE @id_usuario INT = SCOPE_IDENTITY();
-  DECLARE @id_organizacion INT;
-  DECLARE @rol NVARCHAR(50) = 'admin';
-  DECLARE @id_proyecto INT = NULL;
 
-  -- Si hay token, obtener datos de invitación
-  IF @token IS NOT NULL
+  -- Si es admin, crear nueva organización
+  IF @rol = 'admin'
   BEGIN
-    SELECT 
-      @id_organizacion = id_organizacion,
-      @id_proyecto = id_proyecto_visible,
-      @rol = rol
-    FROM Invitaciones
-    WHERE token = @token;
-
-    IF @id_organizacion IS NULL
-    BEGIN
-      RAISERROR('Token de invitación inválido.', 16, 1);
-      RETURN;
-    END
-  END
-  ELSE
-  BEGIN
-    -- Crear nueva organización si no hay token
     INSERT INTO Organizaciones (nombre)
-    VALUES (@nombre + ' Org');
+    VALUES (@nombre_organizacion + ' Org');
 
     SET @id_organizacion = SCOPE_IDENTITY();
   END
 
-  -- Asociar usuario a organización
-  INSERT INTO Usuarios_Organizaciones (usuario_id, organizacion_id, rol_organizacion)
-  VALUES (@id_usuario, @id_organizacion, @rol);
+  -- Asignar a organización
+  EXEC sp_AsignarUsuarioAOrganizacion @id_usuario, @id_organizacion, @rol;
 
-  -- Si el token tenía proyecto visible, asociar al usuario a ese proyecto
-  IF @id_proyecto IS NOT NULL
+  -- Si el rol es colaborador o cliente y viene con proyecto, asignarlo
+  IF @rol IN ('colaborador', 'cliente') AND @id_proyecto IS NOT NULL
   BEGIN
-    INSERT INTO Participantes_Proyecto (usuario_id, proyecto_id, rol)
-    VALUES (@id_usuario, @id_proyecto, @rol);
+    EXEC sp_AsignarUsuarioAProyecto @id_usuario, @id_proyecto, @rol;
   END
 
-  -- Devolver ID del usuario
-  SELECT @id_usuario AS usuario_id;
+  -- Retornar el ID
+  SELECT @id_usuario AS usuario_id, @id_organizacion AS organizacion_id;
 END
-
-
--- Ensure all columns are correctly defined in their respective tables
--- Example table definition for Notificaciones
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Notificaciones' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Notificaciones (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
-        mensaje VARCHAR(255),
-        fecha_notificacion DATETIME DEFAULT GETDATE(),
-        leida BIT DEFAULT 0 -- Ensure 'leida' column is defined
-    );
-END;
 GO
 
--- Example table definition for Miembros_Equipo
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Miembros_Equipo' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Miembros_Equipo (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
-        equipo_id INT FOREIGN KEY REFERENCES Equipos(id),
-        rol NVARCHAR(50) -- Ensure 'rol' column is defined
-    );
-END;
-GO
+
 
 -- Check and correct any syntax errors related to 'estado_id'
 -- Example procedure definition

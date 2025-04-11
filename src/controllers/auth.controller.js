@@ -3,56 +3,86 @@ const jwt = require('jsonwebtoken');
 const { getConnection } = require('../config/db');
 
 async function registerUser(userData) {
-    const { nombre, correo, contrasena, imagen_perfil, numero_telefono, fecha_nacimiento } = userData;
+    const {
+      nombre,
+      correo,
+      contrasena,
+      imagen_perfil,
+      numero_telefono,
+      fecha_nacimiento,
+      token, // opcional
+      nombre_organizacion // opcional (solo si no hay token, o si es admin)
+    } = userData;
+  
     const pool = await getConnection();
-
+  
     try {
-        // Check if user already exists
-        const userExists = await pool.request()
-            .input('correo', correo)
-            .query('SELECT 1 FROM Usuarios WHERE correo = @correo');
-
-        if (userExists.recordset.length > 0) {
-            throw new Error('User already exists');
+      // 1. Verificar si el correo ya existe
+      const userExists = await pool.request()
+        .input('correo', correo)
+        .query('SELECT 1 FROM Usuarios WHERE correo = @correo');
+  
+      if (userExists.recordset.length > 0) {
+        throw new Error('El usuario ya existe');
+      }
+  
+      // 2. Hashear la contraseña
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(contrasena, salt);
+  
+      // 3. Variables que se ajustan según el token
+      let rol = 'admin';
+      let id_organizacion = null;
+      let id_proyecto = null;
+  
+      if (token) {
+        try {
+          const invitacion = jwt.verify(token, process.env.JWT_SECRET);
+  
+          rol = invitacion.rol || 'colaborador';
+          id_organizacion = invitacion.id_organizacion || null;
+          id_proyecto = invitacion.id_proyecto || null;
+        } catch (err) {
+          throw new Error('Token de invitación inválido o expirado');
         }
-
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(contrasena, salt);
-
-        // Create user without using transaction
-        const result = await pool.request()
-            .input('nombre', nombre)
-            .input('correo', correo)
-            .input('contrasena', hashedPassword)
-            .input('imagen_perfil', imagen_perfil || null)
-            .input('numero_telefono', numero_telefono || null)
-            .input('fecha_nacimiento', fecha_nacimiento || null)
-            .execute('RegistrarUsuario');
-
-        // Check if result contains the user ID
-        const userId = result.recordset[0]?.usuario_id;
-
-        if (!userId) {
-            throw new Error('User registration failed, no user ID returned.');
-        }
-
-        // Return the user with the ID
-        return {
-            id_usuario: userId,
-            nombre,
-            correo,
-            imagen_perfil,
-            numero_telefono,
-            fecha_nacimiento
-        };
+      }
+  
+      // 4. Llamar procedimiento almacenado actualizado
+      const result = await pool.request()
+        .input('nombre', nombre)
+        .input('correo', correo)
+        .input('contrasena', hashedPassword)
+        .input('imagen_perfil', imagen_perfil || null)
+        .input('numero_telefono', numero_telefono || null)
+        .input('fecha_nacimiento', fecha_nacimiento || null)
+        .input('rol', rol)
+        .input('id_organizacion', id_organizacion)
+        .input('id_proyecto', id_proyecto)
+        .input('nombre_organizacion', nombre_organizacion || null)
+        .execute('sp_RegistrarUsuarioConInvitacion');
+  
+      const userId = result.recordset?.[0]?.usuario_id;
+      const organizacionId = result.recordset?.[0]?.organizacion_id;
+  
+      if (!userId) {
+        throw new Error('El registro del usuario falló');
+      }
+  
+      return {
+        id_usuario: userId,
+        nombre,
+        correo,
+        rol,
+        id_organizacion: organizacionId
+      };
+  
     } catch (error) {
-        console.error('Error registering user:', error);
-        throw error;
+      console.error('Error registrando usuario:', error.message);
+      throw error;
     }
-}
+  }
 
-
+  
 async function loginUser(userData) {
     const { correo, contrasena } = userData;
     try {

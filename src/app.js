@@ -7,6 +7,7 @@ const { verifyToken } = require('./middleware/auth');
 
 // Import routes
 const authRoutes = require('./routes/auth');
+const invitacionesRoutes = require('./routes/invtaciones'); // Corrected import
 const usersRoutes = require('./routes/users');
 const teamsRoutes = require('./routes/teams');
 const projectsRoutes = require('./routes/projects');
@@ -29,6 +30,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/auth', authRoutes);
 
 // Protected routes
+app.use('/api/invitaciones', verifyToken, invitacionesRoutes); // Corrected usage
 app.use('/api/teams', verifyToken, teamsRoutes);
 app.use('/api/users', verifyToken, usersRoutes);
 app.use('/api/projects',verifyToken, projectsRoutes);
