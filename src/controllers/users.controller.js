@@ -59,12 +59,34 @@ async function changePassword(userId, passwordData) {
 async function deleteUser(id) {
     try {
         const pool = await getConnection();
+
+        // Eliminar registros relacionados en Participantes_Proyecto
+        await pool.request()
+            .input('usuario_id', id)
+            .query('DELETE FROM Participantes_Proyecto WHERE usuario_id = @usuario_id');
+
+        // Eliminar registros relacionados en Usuarios_Roles
+        await pool.request()
+            .input('usuario_id', id)
+            .query('DELETE FROM Usuarios_Roles WHERE usuario_id = @usuario_id');
+
+        // Eliminar registros relacionados en Miembros_Equipo
+        await pool.request()
+            .input('usuario_id', id)
+            .query('DELETE FROM Miembros_Equipo WHERE usuario_id = @usuario_id');
+
+        // Eliminar registros relacionados en Proyectos_Usuarios
+        await pool.request()
+            .input('usuario_id', id)
+            .query('DELETE FROM Proyectos_Usuarios WHERE usuario_id = @usuario_id');
+
+        // Eliminar el usuario
         const result = await pool.request()
-            .input('id', id)
+            .input('id_usuario', id)
             .execute('EliminarUsuario');
 
-        if (result.recordset.length > 0) {
-            return { message: 'User deleted successfully' };
+        if (result.rowsAffected[0] > 0) {
+            return { message: 'User and related records deleted successfully' };
         } else {
             throw new Error('User not found');
         }
@@ -73,6 +95,7 @@ async function deleteUser(id) {
         throw error;
     }
 }
+
 
 async function getUserRoles(id) {
     try {
@@ -90,7 +113,6 @@ async function updateUserDetails(userId, userDetails) {
     const { nombre ,imagen_perfil, numero_telefono, fecha_nacimiento } = userDetails;
     const pool = await getConnection();
 
-    console.log(userId)
     try {
         // Update user details using the stored procedure
         await pool.request()

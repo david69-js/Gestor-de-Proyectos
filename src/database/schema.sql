@@ -225,6 +225,44 @@ BEGIN
     );
 END;
 
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Proyectos' AND xtype = 'U')
+BEGIN
+CREATE TABLE Usuarios_Proyectos (
+    id_usuario INT NOT NULL,
+    id_proyecto INT NOT NULL,
+    rol NVARCHAR(50) NOT NULL DEFAULT 'colaborador', -- puede ser 'colaborador', 'cliente', 'admin', etc.
+    fecha_asignacion DATETIME DEFAULT GETDATE(),
+
+    CONSTRAINT PK_Usuarios_Proyectos PRIMARY KEY (id_usuario, id_proyecto),
+
+    CONSTRAINT FK_Usuarios_Proyectos_Usuario FOREIGN KEY (id_usuario)
+        REFERENCES Usuarios(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT FK_Usuarios_Proyectos_Proyecto FOREIGN KEY (id_proyecto)
+        REFERENCES Proyectos(id)
+        ON DELETE CASCADE
+);
+END;
+
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Organizaciones' AND xtype = 'U')
+BEGIN
+CREATE TABLE Usuarios_Organizaciones (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    id_usuario INT FOREIGN KEY REFERENCES Usuarios(id),
+    id_organizacion INT FOREIGN KEY REFERENCES Organizaciones(id),
+    rol_organizacion VARCHAR(50), -- Ej: admin, miembro
+    fecha_union DATETIME DEFAULT GETDATE()
+
+     CONSTRAINT FK_Usuarios_Organizaciones_Usuario FOREIGN KEY (id_usuario)
+        REFERENCES Usuarios(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT FK_Usuarios_Organizaciones_Organizacion FOREIGN KEY (id_organizacion)
+        REFERENCES Proyectos(id)
+        ON DELETE CASCADE
+);
+END;
 
 -- Remove existing InsertarUsuario if exists
 DROP PROCEDURE IF EXISTS RegistrarUsuario;
@@ -253,6 +291,78 @@ BEGIN
     
 END;
 GO
+
+--Creaate user with invitacion or without invitacion
+DROP PROCEDURE IF EXISTS sp_RegistrarUsuarioConInvitacion;
+GO
+
+CREATE PROCEDURE sp_RegistrarUsuarioConInvitacion
+  @nombre NVARCHAR(50),
+  @correo NVARCHAR(50),
+  @contrasena NVARCHAR(255),
+  @imagen_perfil NVARCHAR(100) = NULL,
+  @numero_telefono NVARCHAR(20) = NULL,
+  @fecha_nacimiento DATE = NULL,
+  @token NVARCHAR(100) = NULL
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  -- Verificar si ya existe el usuario
+  IF EXISTS (SELECT 1 FROM Usuarios WHERE correo = @correo)
+  BEGIN
+    RAISERROR('El usuario ya existe.', 16, 1);
+    RETURN;
+  END
+
+  -- Insertar usuario
+  INSERT INTO Usuarios (nombre, correo, contrasena, imagen_perfil, numero_telefono, fecha_nacimiento)
+  VALUES (@nombre, @correo, @contrasena, @imagen_perfil, @numero_telefono, @fecha_nacimiento);
+
+  DECLARE @id_usuario INT = SCOPE_IDENTITY();
+  DECLARE @id_organizacion INT;
+  DECLARE @rol NVARCHAR(50) = 'admin';
+  DECLARE @id_proyecto INT = NULL;
+
+  -- Si hay token, obtener datos de invitación
+  IF @token IS NOT NULL
+  BEGIN
+    SELECT 
+      @id_organizacion = id_organizacion,
+      @id_proyecto = id_proyecto_visible,
+      @rol = rol
+    FROM Invitaciones
+    WHERE token = @token;
+
+    IF @id_organizacion IS NULL
+    BEGIN
+      RAISERROR('Token de invitación inválido.', 16, 1);
+      RETURN;
+    END
+  END
+  ELSE
+  BEGIN
+    -- Crear nueva organización si no hay token
+    INSERT INTO Organizaciones (nombre)
+    VALUES (@nombre + ' Org');
+
+    SET @id_organizacion = SCOPE_IDENTITY();
+  END
+
+  -- Asociar usuario a organización
+  INSERT INTO Usuarios_Organizaciones (usuario_id, organizacion_id, rol_organizacion)
+  VALUES (@id_usuario, @id_organizacion, @rol);
+
+  -- Si el token tenía proyecto visible, asociar al usuario a ese proyecto
+  IF @id_proyecto IS NOT NULL
+  BEGIN
+    INSERT INTO Participantes_Proyecto (usuario_id, proyecto_id, rol)
+    VALUES (@id_usuario, @id_proyecto, @rol);
+  END
+
+  -- Devolver ID del usuario
+  SELECT @id_usuario AS usuario_id;
+END
 
 
 -- Ensure all columns are correctly defined in their respective tables
