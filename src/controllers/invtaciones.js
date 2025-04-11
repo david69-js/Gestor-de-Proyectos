@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const {transporter} = require('../utils/invitaciones');
 
 async function createInvitation(req, res) {
-  const { rol, id_organizacion, id_proyecto, email_destino } = req.body;
+  const { rol, id_organizacion, nombre_organizacion, id_proyecto, email_destino } = req.body;
 
   try {
     // Validaciones mínimas
@@ -23,6 +23,7 @@ async function createInvitation(req, res) {
     const payload = {
       rol,
       id_organizacion,
+      nombre_organizacion,
       id_proyecto: id_proyecto || null
     };
 
