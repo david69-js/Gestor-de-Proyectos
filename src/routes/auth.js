@@ -21,47 +21,9 @@ router.post('/register', async (req, res) => {
 
 // Login user
 router.post('/login', async (req, res) => {
-    const { correo, contrasena } = req.body;
-    console.log(correo, contrasena)
     try {
-        const pool = await getConnection();
-
-        // Get user using stored procedure
-        
-        const result = await pool.request()
-            .input('correo', correo)
-            .query('EXEC IniciarSesion @correo');
-
-
-        if (result.recordset.length === 0) {
-            return res.status(401).json({ error: 'Invalid Email' });
-        }
-
-        const user = result.recordset[0];
-        const roles = result.recordset.map(r => r.roles);
-
-        // Verify password
-        const validPassword = await bcrypt.compare(contrasena, user.contrasena);
-        if (!validPassword) {
-            return res.status(401).json({ error: 'Invalid password' });
-        }
-
-        // Create token
-        const token = jwt.sign(
-            { 
-                id: user.id,
-                roles: roles
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        delete user.contrasena;
-        res.json({
-            user,
-            token,
-            roles: roles
-        });
+        const { user, token, roles } = await loginUser(req.body);
+        res.json({ user, token, roles });
     } catch (error) {
         console.error('Error logging in:', error);
         res.status(401).json({ error: error.message });
