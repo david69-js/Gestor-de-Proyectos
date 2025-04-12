@@ -72,12 +72,13 @@ async function getConnection() {
 async function verifySchemaVersion(pool) {
   try {
     const procedures = [
-      'RegistrarUsuario',
+      'sp_AsignarUsuarioAOrganizacion',
+      'sp_AsignarUsuarioAProyecto',
+      'sp_AsignarUsuarioAOrganizacion',
       'CambiarContrasena',
       'ObtenerUsuarioPorId',
       'ActualizarUsuario',
       'EliminarUsuario',
-      'ObtenerRolesDeUsuario',
       'InsertarTarea',
     ];
 
