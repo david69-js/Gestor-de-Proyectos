@@ -91,7 +91,13 @@ async function loginUser(userData) {
         // Get user
         const result = await pool.request()
             .input('correo', correo)
-            .query(`SELECT * FROM Usuarios WHERE correo = @correo`);
+            .query(`SELECT 
+                      u.*, 
+                      uo.id_organizacion
+                  FROM Usuarios u
+                  LEFT JOIN Usuarios_Organizaciones uo ON u.id = uo.id_usuario
+                  WHERE u.correo = @correo;
+                  `);
 
         if (result.recordset.length === 0) {
             throw new Error('Invalid credentials');
@@ -109,17 +115,19 @@ async function loginUser(userData) {
         const roles = await pool.request()
             .input('usuario_id', user.id)
             .query(`
-                SELECT r.nombre_rol
-                FROM Roles r
-                INNER JOIN Usuarios_Organizaciones ur ON r.id = ur.rol_organizacion
-                WHERE ur.id_usuario = @usuario_id;
+                SELECT 
+                uo.rol_organizacion
+                FROM Organizaciones o
+                JOIN Usuarios_Organizaciones uo ON o.id = uo.id_organizacion
+                JOIN Usuarios u ON @usuario_id = uo.id_usuario
+                ORDER BY o.nombre, u.nombre;
             `);
 
         // Create token
         const token = jwt.sign(
             { 
                 id: user.id,
-                roles: roles.recordset.map(r => r.nombre_rol)
+                roles: roles.recordset.map(r => r.rol_organizacion)
             },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
@@ -129,7 +137,7 @@ async function loginUser(userData) {
         return {
             user,
             token,
-            roles: roles.recordset.map(r => r.nombre_rol)
+            roles: roles.recordset.map(r => r.rol_organizacion)
         };
     } catch (error) {
         console.error('Error logging in:', error);
