@@ -448,22 +448,36 @@ BEGIN
 END;
 GO
 
--- Procedimiento para crear un proyecto
+
 DROP PROCEDURE IF EXISTS CrearProyecto;
 GO
 CREATE PROCEDURE CrearProyecto
     @nombre_proyecto NVARCHAR(100),
     @descripcion NVARCHAR(255),
-    @fecha_fin DATETIME
+    @fecha_fin DATETIME,
+    @id_usuario INT
 AS
 BEGIN
+    SET NOCOUNT ON;
+
+    -- Insertar en Proyectos
     INSERT INTO Proyectos (nombre_proyecto, descripcion, fecha_inicio, fecha_fin)
     VALUES (@nombre_proyecto, @descripcion, GETDATE(), @fecha_fin);
-    
-    -- Return the inserted project ID
-    SELECT SCOPE_IDENTITY() AS id_proyecto;
+
+    -- Obtener el ID recién creado
+    DECLARE @id_proyecto INT;
+    SET @id_proyecto = SCOPE_IDENTITY();
+
+    -- Insertar en Proyectos_Usuarios la relación
+    INSERT INTO Proyectos_Usuarios (proyecto_id, usuario_id)
+    VALUES (@id_proyecto, @id_usuario);
+
+    -- Devolver el ID del proyecto
+    SELECT @id_proyecto AS id_proyecto;
 END;
 GO
+
+
 
 -- Eliminar el procedimiento si ya existe
 DROP PROCEDURE IF EXISTS InsertarProyectoUsuario;
