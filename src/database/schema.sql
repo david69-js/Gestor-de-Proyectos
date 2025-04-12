@@ -219,31 +219,22 @@ CREATE TABLE Usuarios_Proyectos (
 );
 END;
 
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Organizaciones' AND xtype = 'U')
-BEGIN
-CREATE TABLE Organizaciones (
-    id INT PRIMARY KEY IDENTITY(1,1),
-    nombre VARCHAR(255) NOT NULL,
-    fecha_creacion DATETIME DEFAULT GETDATE()
-);
-END;
-
 
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Organizaciones' AND xtype = 'U')
 BEGIN
 CREATE TABLE Usuarios_Organizaciones (
     id INT PRIMARY KEY IDENTITY(1,1),
-    id_usuario INT FOREIGN KEY REFERENCES Usuarios(id),
-    id_organizacion INT FOREIGN KEY REFERENCES Organizaciones(id),
-    rol_organizacion VARCHAR(50), -- Ej: admin, miembro
-    fecha_union DATETIME DEFAULT GETDATE()
+    id_usuario INT NOT NULL,
+    id_organizacion INT NOT NULL,
+    rol_organizacion VARCHAR(50),
+    fecha_union DATETIME DEFAULT GETDATE(),
 
-     CONSTRAINT FK_Usuarios_Organizaciones_Usuario FOREIGN KEY (id_usuario)
+    CONSTRAINT FK_Usuarios_Organizaciones_Usuario FOREIGN KEY (id_usuario)
         REFERENCES Usuarios(id)
         ON DELETE CASCADE,
 
     CONSTRAINT FK_Usuarios_Organizaciones_Organizacion FOREIGN KEY (id_organizacion)
-        REFERENCES Proyectos(id)
+        REFERENCES Organizaciones(id)
         ON DELETE CASCADE
 );
 END;
@@ -272,7 +263,9 @@ CREATE PROCEDURE sp_AsignarUsuarioAOrganizacion
 AS
 BEGIN
   SET NOCOUNT ON;
-  INSERT INTO Usuarios_Organizaciones (usuario_id, organizacion_id, rol_organizacion)
+
+  -- Ensure the column names match the table definition
+  INSERT INTO Usuarios_Organizaciones (id_usuario, id_organizacion, rol_organizacion)
   VALUES (@id_usuario, @id_organizacion, @rol);
 END
 GO
@@ -287,12 +280,12 @@ AS
 BEGIN
   SET NOCOUNT ON;
 
-  INSERT INTO Proyectos_Usuarios (usuario_id, proyecto_id, rol)
+  INSERT INTO Proyectos_Usuarios (id_usuario, proyecto_id, rol)
   VALUES (@id_usuario, @id_proyecto, @rol);
 END
 GO
 
-DROP PROCEDURE IF EXISTS sp_RegistrarUsuarioConOrganizacionYProyecto;
+DROP PROCEDURE IF EXISTS sp_RegistrarUsuarioConInvitacion;
 GO
 IF OBJECT_ID('sp_RegistrarUsuarioConInvitacion', 'P') IS NOT NULL
   DROP PROCEDURE sp_RegistrarUsuarioConInvitacion;
