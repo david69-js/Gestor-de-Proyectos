@@ -2,19 +2,28 @@
 
 ## User Registration
 **Endpoint:** POST `/api/auth/register`
-
+**Token es opcional segun lo que se busque, si es cliente o colaborador, si no hay es para usuario admin**
+**Nombre Organizacicion se llena de forma dinamica, solo si es coloborador o si es clinte, de lo contrario se llena de parte del admin **
 ```json
 {
-    "nombre": "Jane Doe",
-    "correo": "jane.doe@example.com",
-    "contrasena": "SecurePassword123!"
+    {
+    "nombre": "David Toj",
+    "correo": "david@example.com",
+    "contrasena": "securePassword123",
+    "nombre_organizacion": "Studio31",
+    "token": "token es opcional segun lo que se busque",
+    "imagen_perfil": "path/to/profile/image.jpg",
+    "numero_telefono": "123-456-7890",
+    "fecha_nacimiento": "1990-01-01"
+}
 }
 ```
 ## User Login
+** Solo necesita correo y contrasenia **
 **Endpoint:** POST `/api/auth/login`
 ```json
 {
-   "correo": "juanitoExp@example.com",
+    "correo": "david@example.com",
     "contrasena": "securePassword123"
 }
 ```
