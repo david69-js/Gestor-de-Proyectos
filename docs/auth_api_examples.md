@@ -52,6 +52,18 @@ No request body is required for this rout
 }
 ```
 
+## Crear Invitaciones para una organizacion
+**Endpoint:** POST `http://localhost:3000/api/invitaciones/crear-invitacion`
+```json
+{
+   {
+        "rol": "cliente",
+        "id_organizacion": 3,
+        "id_proyecto": 1002,
+        "email_destino": "david@studio31.io"
+    }
+}
+```
 
 ## Create Project
 **Endpoint:** POST `/api/projects`
