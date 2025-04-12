@@ -4,6 +4,8 @@ BEGIN
     CREATE DATABASE GestionProyectos;
 END
 
+Use GestionProyectos
+
 
 -- Crear la tabla Usuarios solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios' AND xtype = 'U')
@@ -20,43 +22,12 @@ BEGIN
     );
 END
 
-
--- Crear la tabla Equipos solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Equipos' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Equipos (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        nombre_equipo VARCHAR(255),
-        descripcion VARCHAR(MAX)
-    );
-END;
-
--- Crear la tabla Miembros_Equipo solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Miembros_Equipo' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Miembros_Equipo (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
-        equipo_id INT FOREIGN KEY REFERENCES Equipos(id)
-    );
-END;
-
 -- Crear la tabla Roles solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Roles' AND xtype = 'U')
 BEGIN
     CREATE TABLE Roles (
         id INT PRIMARY KEY IDENTITY(1,1),
         nombre_rol VARCHAR(50)
-    );
-END;
-
--- Crear la tabla Usuarios_Roles solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Roles' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Usuarios_Roles (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
-        rol_id INT FOREIGN KEY REFERENCES Roles(id)
     );
 END;
 
@@ -110,7 +81,7 @@ BEGIN
         nombre_tarea VARCHAR(255),
         descripcion VARCHAR(MAX),
         fecha_creacion DATETIME DEFAULT GETDATE(),
-        fecha_limite DATETIME
+        fecha_limite DATETIME,
         estado_id INT FOREIGN KEY REFERENCES Estados_Tarea(id)
     );
 END;
@@ -165,17 +136,6 @@ BEGIN
     );
 END;
 
--- Crear la tabla Notificaciones solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Notificaciones' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Notificaciones (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
-        mensaje VARCHAR(255),
-        fecha_notificacion DATETIME DEFAULT GETDATE()
-    );
-END;
-
 -- Crear la tabla Etiquetas solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Etiquetas' AND xtype = 'U')
 BEGIN
@@ -219,7 +179,6 @@ BEGIN
         estado VARCHAR(20) DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aceptada', 'rechazada')),
         codigo_confirmacion VARCHAR(50) NOT NULL,  -- Código único para la invitación
         fecha_creacion DATETIME DEFAULT GETDATE(),
-        FOREIGN KEY (equipo_id) REFERENCES Equipos(id) ON DELETE CASCADE,
         FOREIGN KEY (proyecto_id) REFERENCES Proyectos(id) ON DELETE CASCADE,
         FOREIGN KEY (rol_id) REFERENCES Roles(id) ON DELETE CASCADE
     );
@@ -262,6 +221,16 @@ END;
 
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Organizaciones' AND xtype = 'U')
 BEGIN
+CREATE TABLE Organizaciones (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    nombre VARCHAR(255) NOT NULL,
+    fecha_creacion DATETIME DEFAULT GETDATE()
+);
+END;
+
+
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Organizaciones' AND xtype = 'U')
+BEGIN
 CREATE TABLE Usuarios_Organizaciones (
     id INT PRIMARY KEY IDENTITY(1,1),
     id_usuario INT FOREIGN KEY REFERENCES Usuarios(id),
@@ -278,7 +247,6 @@ CREATE TABLE Usuarios_Organizaciones (
         ON DELETE CASCADE
 );
 END;
-
 
 DROP PROCEDURE IF EXISTS sp_CrearOrganizacion;
 GO
