@@ -219,6 +219,15 @@ CREATE TABLE Usuarios_Proyectos (
 );
 END;
 
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Organizaciones' AND xtype = 'U')
+BEGIN
+CREATE TABLE Organizaciones (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    nombre VARCHAR(255) NOT NULL,
+    fecha_creacion DATETIME DEFAULT GETDATE()
+);
+END;
+
 
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Organizaciones' AND xtype = 'U')
 BEGIN
