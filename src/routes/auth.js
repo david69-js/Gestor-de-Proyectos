@@ -65,6 +65,7 @@ router.post('/register', async (req, res) => {
 // Login user
 router.post('/login', async (req, res) => {
     const { correo, contrasena } = req.body;
+    console.log(correo, contrasena)
     try {
         const pool = await getConnection();
 
@@ -74,7 +75,6 @@ router.post('/login', async (req, res) => {
             .input('correo', correo)
             .query('EXEC IniciarSesion @correo');
 
-        console.log(result);
 
         if (result.recordset.length === 0) {
             return res.status(401).json({ error: 'Invalid Email' });
