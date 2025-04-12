@@ -204,7 +204,6 @@ BEGIN
 CREATE TABLE Usuarios_Proyectos (
     id_usuario INT NOT NULL,
     id_proyecto INT NOT NULL,
-    rol NVARCHAR(50) NOT NULL DEFAULT 'colaborador', -- puede ser 'colaborador', 'cliente', 'admin', etc.
     fecha_asignacion DATETIME DEFAULT GETDATE(),
 
     CONSTRAINT PK_Usuarios_Proyectos PRIMARY KEY (id_usuario, id_proyecto),
