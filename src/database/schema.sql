@@ -10,12 +10,16 @@ IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios' AND xtype = 'U')
 BEGIN
     CREATE TABLE Usuarios (
         id INT PRIMARY KEY IDENTITY(1,1),
-        nombre VARCHAR(255),
-        correo VARCHAR(255) UNIQUE,
-        contrasena VARCHAR(255),
+        nombre VARCHAR(100) NOT NULL,
+        correo VARCHAR(100) UNIQUE NOT NULL,
+        contrasena VARCHAR(255) NOT NULL,
+        imagen_perfil VARCHAR(255), -- opcional
+        numero_telefono VARCHAR(20), -- opcional
+        fecha_nacimiento DATE, -- opcional
         fecha_registro DATETIME DEFAULT GETDATE()
     );
-END;
+END
+
 
 -- Crear la tabla Equipos solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Equipos' AND xtype = 'U')
@@ -221,53 +225,177 @@ BEGIN
     );
 END;
 
-
--- Procedimiento para insertar un usuario
--- Remove existing InsertarUsuario if exists
-DROP PROCEDURE IF EXISTS RegistrarUsuario;
-GO
-
--- Create RegistrarUsuario procedure
-CREATE PROCEDURE RegistrarUsuario
-    @nombre VARCHAR(255),
-    @correo VARCHAR(255),
-    @contrasena VARCHAR(255)
-AS
+-- Ensure all columns are correctly defined in their respective tables
+-- Example table definition for Notificaciones
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Notificaciones' AND xtype = 'U')
 BEGIN
-    BEGIN TRANSACTION
-    BEGIN TRY
-        -- Insert user
-        INSERT INTO Usuarios (nombre, correo, contrasena)
-        VALUES (@nombre, @correo, @contrasena);
-        
-        -- Get inserted user ID
-        DECLARE @usuario_id INT = SCOPE_IDENTITY();
-        
-        -- Assign default role
-        INSERT INTO Usuarios_Roles (usuario_id, rol_id)
-        SELECT @usuario_id, id FROM Roles WHERE nombre_rol = 'Miembro del Equipo';
-        
-        COMMIT TRANSACTION
-    END TRY
-    BEGIN CATCH
-        ROLLBACK TRANSACTION
-        THROW
-    END CATCH
+    CREATE TABLE Notificaciones (
+        id INT PRIMARY KEY IDENTITY(1,1),
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
+        mensaje VARCHAR(255),
+        fecha_notificacion DATETIME DEFAULT GETDATE(),
+        leida BIT DEFAULT 0 -- Ensure 'leida' column is defined
+    );
 END;
 GO
 
--- Create IniciarSesion procedure
-DROP PROCEDURE IF EXISTS  IniciarSesion
+
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Proyectos' AND xtype = 'U')
+BEGIN
+CREATE TABLE Usuarios_Proyectos (
+    id_usuario INT NOT NULL,
+    id_proyecto INT NOT NULL,
+    rol NVARCHAR(50) NOT NULL DEFAULT 'colaborador', -- puede ser 'colaborador', 'cliente', 'admin', etc.
+    fecha_asignacion DATETIME DEFAULT GETDATE(),
+
+    CONSTRAINT PK_Usuarios_Proyectos PRIMARY KEY (id_usuario, id_proyecto),
+
+    CONSTRAINT FK_Usuarios_Proyectos_Usuario FOREIGN KEY (id_usuario)
+        REFERENCES Usuarios(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT FK_Usuarios_Proyectos_Proyecto FOREIGN KEY (id_proyecto)
+        REFERENCES Proyectos(id)
+        ON DELETE CASCADE
+);
+END;
+
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Organizaciones' AND xtype = 'U')
+BEGIN
+CREATE TABLE Usuarios_Organizaciones (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    id_usuario INT FOREIGN KEY REFERENCES Usuarios(id),
+    id_organizacion INT FOREIGN KEY REFERENCES Organizaciones(id),
+    rol_organizacion VARCHAR(50), -- Ej: admin, miembro
+    fecha_union DATETIME DEFAULT GETDATE()
+
+     CONSTRAINT FK_Usuarios_Organizaciones_Usuario FOREIGN KEY (id_usuario)
+        REFERENCES Usuarios(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT FK_Usuarios_Organizaciones_Organizacion FOREIGN KEY (id_organizacion)
+        REFERENCES Proyectos(id)
+        ON DELETE CASCADE
+);
+END;
+
+
+DROP PROCEDURE IF EXISTS sp_CrearOrganizacion;
 GO
-CREATE PROCEDURE ObtenerUsuarios
-    @correo VARCHAR(255)
+CREATE PROCEDURE sp_CrearOrganizacion
+  @nombreOrganizacion NVARCHAR(255)
 AS
 BEGIN
-    SELECT u.*, r.nombre_rol AS roles
-    FROM Usuarios u
-    INNER JOIN Usuarios_Roles ur ON u.id = ur.usuario_id
-    INNER JOIN Roles r ON ur.rol_id = r.id
-    WHERE u.correo = @correo;
+  SET NOCOUNT ON;
+  INSERT INTO Organizaciones (nombre)
+  VALUES (@nombreOrganizacion);
+
+  SELECT SCOPE_IDENTITY() AS id_organizacion;
+END
+GO
+
+
+DROP PROCEDURE IF EXISTS sp_AsignarUsuarioAOrganizacion;
+GO
+CREATE PROCEDURE sp_AsignarUsuarioAOrganizacion
+  @id_usuario INT,
+  @id_organizacion INT,
+  @rol NVARCHAR(50)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  INSERT INTO Usuarios_Organizaciones (usuario_id, organizacion_id, rol_organizacion)
+  VALUES (@id_usuario, @id_organizacion, @rol);
+END
+GO
+
+DROP PROCEDURE IF EXISTS sp_AsignarUsuarioAProyecto;
+GO
+CREATE PROCEDURE sp_AsignarUsuarioAProyecto
+  @id_usuario INT,
+  @id_proyecto INT,
+  @rol NVARCHAR(50)
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  INSERT INTO Proyectos_Usuarios (usuario_id, proyecto_id, rol)
+  VALUES (@id_usuario, @id_proyecto, @rol);
+END
+GO
+
+DROP PROCEDURE IF EXISTS sp_RegistrarUsuarioConOrganizacionYProyecto;
+GO
+IF OBJECT_ID('sp_RegistrarUsuarioConInvitacion', 'P') IS NOT NULL
+  DROP PROCEDURE sp_RegistrarUsuarioConInvitacion;
+GO
+
+CREATE PROCEDURE sp_RegistrarUsuarioConInvitacion
+  @nombre NVARCHAR(100),
+  @correo NVARCHAR(100),
+  @contrasena NVARCHAR(255),
+  @imagen_perfil NVARCHAR(255) = NULL,
+  @numero_telefono NVARCHAR(20) = NULL,
+  @fecha_nacimiento DATE = NULL,
+  @rol NVARCHAR(50), -- 'admin', 'colaborador', 'cliente'
+  @id_organizacion INT = NULL,
+  @nombre_organizacion NVARCHAR(100),
+  @id_proyecto INT = NULL
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  -- Validación básica
+  IF EXISTS (SELECT 1 FROM Usuarios WHERE correo = @correo)
+  BEGIN
+    THROW 50001, 'El correo ya está registrado.', 1;
+  END
+
+  -- Insertar usuario
+  INSERT INTO Usuarios (nombre, correo, contrasena, imagen_perfil, numero_telefono, fecha_nacimiento)
+  VALUES (@nombre, @correo, @contrasena, @imagen_perfil, @numero_telefono, @fecha_nacimiento);
+
+  DECLARE @id_usuario INT = SCOPE_IDENTITY();
+
+  -- Si es admin, crear nueva organización
+  IF @rol = 'admin'
+  BEGIN
+    INSERT INTO Organizaciones (nombre)
+    VALUES (@nombre_organizacion + ' Org');
+
+    SET @id_organizacion = SCOPE_IDENTITY();
+  END
+
+  -- Asignar a organización
+  EXEC sp_AsignarUsuarioAOrganizacion @id_usuario, @id_organizacion, @rol;
+
+  -- Si el rol es colaborador o cliente y viene con proyecto, asignarlo
+  IF @rol IN ('colaborador', 'cliente') AND @id_proyecto IS NOT NULL
+  BEGIN
+    EXEC sp_AsignarUsuarioAProyecto @id_usuario, @id_proyecto, @rol;
+  END
+
+  -- Retornar el ID
+  SELECT @id_usuario AS usuario_id, @id_organizacion AS organizacion_id;
+END
+GO
+
+
+
+-- Check and correct any syntax errors related to 'estado_id'
+-- Example procedure definition
+DROP PROCEDURE IF EXISTS InsertarTarea;
+GO
+CREATE PROCEDURE InsertarTarea
+    @proyecto_id INT,
+    @titulo NVARCHAR(100),
+    @descripcion NVARCHAR(255),
+    @fecha_limite DATETIME,
+    @estado_id INT -- Ensure 'estado_id' is correctly used
+AS
+BEGIN
+    INSERT INTO Tareas (proyecto_id, nombre_tarea, descripcion, fecha_creacion, fecha_limite, estado_id)
+    VALUES (@proyecto_id, @titulo, @descripcion, GETDATE(), @fecha_limite, @estado_id);
 END;
 GO
 
@@ -558,5 +686,74 @@ BEGIN
     VALUES (@nombre_equipo, @descripcion);
     
     SELECT SCOPE_IDENTITY() AS id_equipo;
+END;
+GO
+
+-- Procedimiento para obtener un usuario por ID
+DROP PROCEDURE IF EXISTS ObtenerUsuarioPorId;
+GO
+CREATE PROCEDURE ObtenerUsuarioPorId
+    @id INT
+AS
+BEGIN
+    SELECT id, nombre, correo, fecha_registro
+    FROM Usuarios
+    WHERE id = @id;
+END;
+GO
+
+
+-- Procedimiento para actualizar un usuario
+DROP PROCEDURE IF EXISTS ActualizarUsuario;
+GO
+CREATE PROCEDURE ActualizarUsuario
+    @id INT,
+    @nombre NVARCHAR(255),
+    @imagen_perfil NVARCHAR(255) = NULL, -- Optional
+    @numero_telefono NVARCHAR(20) = NULL, -- Optional
+    @fecha_nacimiento DATE = NULL -- Optional
+AS
+BEGIN
+    UPDATE Usuarios
+    SET nombre = @nombre,
+        imagen_perfil = @imagen_perfil,
+        numero_telefono = @numero_telefono,
+        fecha_nacimiento = @fecha_nacimiento
+    WHERE id = @id;
+    
+    SELECT * FROM Usuarios WHERE id = @id;
+END;
+GO
+
+-- Procedimiento para obtener roles de un usuario
+DROP PROCEDURE IF EXISTS ObtenerRolesDeUsuario;
+GO
+CREATE PROCEDURE ObtenerRolesDeUsuario
+    @id INT
+AS
+BEGIN
+    SELECT r.id, r.nombre_rol
+    FROM Roles r
+    INNER JOIN Usuarios_Roles ur ON r.id = ur.rol_id
+    WHERE ur.usuario_id = @id;
+END;
+GO
+
+-- Drop the procedure if it already exists
+DROP PROCEDURE IF EXISTS CambiarContrasena;
+GO
+
+-- Create the stored procedure
+CREATE PROCEDURE CambiarContrasena
+    @userId INT,
+    @nueva_contrasena NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Update password
+    UPDATE Usuarios
+    SET contrasena = @nueva_contrasena
+    WHERE id = @userId;
 END;
 GO
