@@ -96,19 +96,6 @@ async function deleteUser(id) {
     }
 }
 
-
-async function getUserRoles(id) {
-    try {
-        const pool = await getConnection();
-        const result = await pool.request()
-            .input('id', id)
-            .execute('ObtenerRolesDeUsuario');
-        return result.recordset;
-    } catch (error) {
-        console.error('Error getting user roles:', error);
-        throw error;
-    }
-}
 async function updateUserDetails(userId, userDetails) {
     const { nombre ,imagen_perfil, numero_telefono, fecha_nacimiento } = userDetails;
     const pool = await getConnection();
@@ -133,6 +120,5 @@ module.exports = {
     getUserById,
     deleteUser,
     changePassword,
-    getUserRoles,
     updateUserDetails
 };
