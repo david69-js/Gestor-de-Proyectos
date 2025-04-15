@@ -61,26 +61,6 @@ async function deleteUser(id) {
     try {
         const pool = await getConnection();
 
-        // Eliminar registros relacionados en Participantes_Proyecto
-        await pool.request()
-            .input('usuario_id', id)
-            .query('DELETE FROM Participantes_Proyecto WHERE usuario_id = @usuario_id');
-
-        // Eliminar registros relacionados en Usuarios_Roles
-        await pool.request()
-            .input('usuario_id', id)
-            .query('DELETE FROM Usuarios_Roles WHERE usuario_id = @usuario_id');
-
-        // Eliminar registros relacionados en Miembros_Equipo
-        await pool.request()
-            .input('usuario_id', id)
-            .query('DELETE FROM Miembros_Equipo WHERE usuario_id = @usuario_id');
-
-        // Eliminar registros relacionados en Proyectos_Usuarios
-        await pool.request()
-            .input('usuario_id', id)
-            .query('DELETE FROM Proyectos_Usuarios WHERE usuario_id = @usuario_id');
-
         // Eliminar el usuario
         const result = await pool.request()
             .input('id_usuario', id)
