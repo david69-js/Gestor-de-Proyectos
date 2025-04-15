@@ -75,6 +75,7 @@ async function verifySchemaVersion(pool) {
       'sp_AsignarUsuarioAOrganizacion',
       'sp_AsignarUsuarioAProyecto',
       'sp_AsignarUsuarioAOrganizacion',
+      'sp_SetupRolesYPermisos',
       'CambiarContrasena',
       'ObtenerUsuarioPorId',
       'ActualizarUsuario',

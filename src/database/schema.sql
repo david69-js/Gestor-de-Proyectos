@@ -86,19 +86,6 @@ BEGIN
     );
 END;
 
--- Crear la tabla Asignaciones_Tarea solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Asignaciones_Tarea' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Asignaciones_Tarea (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT,
-        tarea_id INT,
-        fecha_asignacion DATETIME DEFAULT GETDATE(),
-        estado_asignacion VARCHAR(50),
-        FOREIGN KEY (usuario_id) REFERENCES Usuarios(id) ON DELETE CASCADE,
-        FOREIGN KEY (tarea_id) REFERENCES Tareas(id) ON DELETE CASCADE
-    );
-END;
 
 -- Crear la tabla Comentarios solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Comentarios' AND xtype = 'U')
@@ -173,7 +160,6 @@ BEGIN
     CREATE TABLE Invitaciones (
         id INT PRIMARY KEY IDENTITY(1,1),
         correo VARCHAR(255) NOT NULL,  -- Email del usuario invitado
-        equipo_id INT NULL,  -- Puede ser NULL si es una invitación general
         proyecto_id INT NULL,  -- Puede ser NULL si es una invitación a un equipo
         rol_id INT NOT NULL,  -- Rol asignado al usuario al aceptar la invitación
         estado VARCHAR(20) DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aceptada', 'rechazada')),
@@ -250,6 +236,86 @@ CREATE TABLE Usuarios_Organizaciones (
 );
 END;
 
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Roles_Permisos' AND xtype = 'U')
+BEGIN
+    CREATE TABLE Roles_Permisos (
+        id INT PRIMARY KEY IDENTITY(1,1),
+        id_rol INT NOT NULL,
+        id_permiso INT NOT NULL,
+        CONSTRAINT FK_Roles_Permisos_Rol FOREIGN KEY (id_rol) REFERENCES Roles(id) ON DELETE CASCADE,
+        CONSTRAINT FK_Roles_Permisos_Permiso FOREIGN KEY (id_permiso) REFERENCES Permisos(id) ON DELETE CASCADE,
+        CONSTRAINT UNIQUE_Rol_Permiso UNIQUE (id_rol, id_permiso)
+    );
+END;
+
+
+
+IF OBJECT_ID('sp_SetupRolesYPermisos', 'P') IS NOT NULL
+    DROP PROCEDURE sp_SetupRolesYPermisos;
+GO
+CREATE PROCEDURE sp_SetupRolesYPermisos
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Insertar Roles si no existen
+    IF NOT EXISTS (SELECT 1 FROM Roles WHERE nombre_rol = 'admin')
+        INSERT INTO Roles (nombre_rol) VALUES ('admin');
+
+    IF NOT EXISTS (SELECT 1 FROM Roles WHERE nombre_rol = 'colaborador')
+        INSERT INTO Roles (nombre_rol) VALUES ('colaborador');
+
+    IF NOT EXISTS (SELECT 1 FROM Roles WHERE nombre_rol = 'cliente')
+        INSERT INTO Roles (nombre_rol) VALUES ('cliente');
+
+    -- Insertar Permisos si no existen
+    IF NOT EXISTS (SELECT 1 FROM Permisos WHERE permiso = 'lectura')
+        INSERT INTO Permisos (permiso) VALUES ('lectura');
+
+    IF NOT EXISTS (SELECT 1 FROM Permisos WHERE permiso = 'escritura')
+        INSERT INTO Permisos (permiso) VALUES ('escritura');
+
+    IF NOT EXISTS (SELECT 1 FROM Permisos WHERE permiso = 'eliminacion')
+        INSERT INTO Permisos (permiso) VALUES ('eliminacion');
+
+    -- Asignar Permisos a Roles
+    -- Asignar permisos al rol de 'admin' (todos los permisos)
+    DECLARE @id_admin INT = (SELECT id FROM Roles WHERE nombre_rol = 'admin');
+    DECLARE @id_lectura INT = (SELECT id FROM Permisos WHERE permiso = 'lectura');
+    DECLARE @id_escritura INT = (SELECT id FROM Permisos WHERE permiso = 'escritura');
+    DECLARE @id_eliminacion INT = (SELECT id FROM Permisos WHERE permiso = 'eliminacion');
+    
+    -- Asignar todos los permisos al rol de 'admin'
+    IF NOT EXISTS (SELECT 1 FROM Roles_Permisos WHERE id_rol = @id_admin AND id_permiso = @id_lectura)
+        INSERT INTO Roles_Permisos (id_rol, id_permiso) VALUES (@id_admin, @id_lectura);
+    
+    IF NOT EXISTS (SELECT 1 FROM Roles_Permisos WHERE id_rol = @id_admin AND id_permiso = @id_escritura)
+        INSERT INTO Roles_Permisos (id_rol, id_permiso) VALUES (@id_admin, @id_escritura);
+    
+    IF NOT EXISTS (SELECT 1 FROM Roles_Permisos WHERE id_rol = @id_admin AND id_permiso = @id_eliminacion)
+        INSERT INTO Roles_Permisos (id_rol, id_permiso) VALUES (@id_admin, @id_eliminacion);
+
+    -- Asignar permisos al rol de 'colaborador' (lectura y escritura)
+    DECLARE @id_colaborador INT = (SELECT id FROM Roles WHERE nombre_rol = 'colaborador');
+    
+    IF NOT EXISTS (SELECT 1 FROM Roles_Permisos WHERE id_rol = @id_colaborador AND id_permiso = @id_lectura)
+        INSERT INTO Roles_Permisos (id_rol, id_permiso) VALUES (@id_colaborador, @id_lectura);
+    
+    IF NOT EXISTS (SELECT 1 FROM Roles_Permisos WHERE id_rol = @id_colaborador AND id_permiso = @id_escritura)
+        INSERT INTO Roles_Permisos (id_rol, id_permiso) VALUES (@id_colaborador, @id_escritura);
+
+    -- Asignar permisos al rol de 'cliente' (solo lectura)
+    DECLARE @id_cliente INT = (SELECT id FROM Roles WHERE nombre_rol = 'cliente');
+    
+    IF NOT EXISTS (SELECT 1 FROM Roles_Permisos WHERE id_rol = @id_cliente AND id_permiso = @id_lectura)
+        INSERT INTO Roles_Permisos (id_rol, id_permiso) VALUES (@id_cliente, @id_lectura);
+    
+END;
+GO
+
+-- Ejecutar el procedimiento
+EXEC sp_SetupRolesYPermisos;
+
 DROP PROCEDURE IF EXISTS sp_CrearOrganizacion;
 GO
 CREATE PROCEDURE sp_CrearOrganizacion
@@ -270,14 +336,14 @@ GO
 CREATE PROCEDURE sp_AsignarUsuarioAOrganizacion
   @id_usuario INT,
   @id_organizacion INT,
-  @rol NVARCHAR(50)
+  @id_rol INT
 AS
 BEGIN
   SET NOCOUNT ON;
 
   -- Ensure the column names match the table definition
-  INSERT INTO Usuarios_Organizaciones (id_usuario, id_organizacion, rol_organizacion)
-  VALUES (@id_usuario, @id_organizacion, @rol);
+  INSERT INTO Usuarios_Organizaciones (id_usuario, id_organizacion, id_rol)
+  VALUES (@id_usuario, @id_organizacion, @id_rol);
 END
 GO
 
@@ -285,72 +351,138 @@ DROP PROCEDURE IF EXISTS sp_AsignarUsuarioAProyecto;
 GO
 CREATE PROCEDURE sp_AsignarUsuarioAProyecto
   @id_usuario INT,
-  @id_proyecto INT,
-  @rol NVARCHAR(50)
+  @id_proyecto INT
 AS
 BEGIN
   SET NOCOUNT ON;
 
-  INSERT INTO Proyectos_Usuarios (id_usuario, proyecto_id, rol)
-  VALUES (@id_usuario, @id_proyecto, @rol);
+  INSERT INTO Proyectos_Usuarios (usuario_id, proyecto_id)
+  VALUES (@id_usuario, @id_proyecto);
 END
 GO
+
 
 DROP PROCEDURE IF EXISTS sp_RegistrarUsuarioConInvitacion;
 GO
+
 IF OBJECT_ID('sp_RegistrarUsuarioConInvitacion', 'P') IS NOT NULL
-  DROP PROCEDURE sp_RegistrarUsuarioConInvitacion;
+    DROP PROCEDURE sp_RegistrarUsuarioConInvitacion;
 GO
 
 CREATE PROCEDURE sp_RegistrarUsuarioConInvitacion
-  @nombre NVARCHAR(100),
-  @correo NVARCHAR(100),
-  @contrasena NVARCHAR(255),
-  @imagen_perfil NVARCHAR(255) = NULL,
-  @numero_telefono NVARCHAR(20) = NULL,
-  @fecha_nacimiento DATE = NULL,
-  @rol NVARCHAR(50), -- 'admin', 'colaborador', 'cliente'
-  @id_organizacion INT = NULL,
-  @nombre_organizacion NVARCHAR(100),
-  @id_proyecto INT = NULL
+    @nombre NVARCHAR(100),
+    @correo NVARCHAR(100),
+    @contrasena NVARCHAR(255),
+    @imagen_perfil NVARCHAR(255) = NULL,
+    @numero_telefono NVARCHAR(20) = NULL,
+    @fecha_nacimiento DATE = NULL,
+    @nombre_organizacion NVARCHAR(100),
+    @id_rol INT,
+    @id_organizacion INT = NULL,
+    @id_proyecto INT = NULL
 AS
 BEGIN
-  SET NOCOUNT ON;
+    SET NOCOUNT ON;
 
-  -- Validación básica
-  IF EXISTS (SELECT 1 FROM Usuarios WHERE correo = @correo)
-  BEGIN
-    THROW 50001, 'El correo ya está registrado.', 1;
-  END
+    -- Validar que el correo no exista
+    IF EXISTS (SELECT 1 FROM Usuarios WHERE correo = @correo)
+    BEGIN
+        THROW 50001, 'El correo ya está registrado.', 1;
+    END
 
-  -- Insertar usuario
-  INSERT INTO Usuarios (nombre, correo, contrasena, imagen_perfil, numero_telefono, fecha_nacimiento)
-  VALUES (@nombre, @correo, @contrasena, @imagen_perfil, @numero_telefono, @fecha_nacimiento);
+    -- Validar que el rol exista
+    DECLARE @rol_nombre NVARCHAR(50);
+    SELECT @rol_nombre = nombre_rol FROM Roles WHERE id = @id_rol;
 
-  DECLARE @id_usuario INT = SCOPE_IDENTITY();
+    IF @rol_nombre IS NULL
+    BEGIN
+        THROW 50002, 'El rol especificado no existe.', 1;
+    END
 
-  -- Si es admin, crear nueva organización
-  IF @rol = 'admin'
-  BEGIN
-    INSERT INTO Organizaciones (nombre)
-    VALUES (@nombre_organizacion + ' Org');
+    -- Insertar usuario
+    INSERT INTO Usuarios (nombre, correo, contrasena, imagen_perfil, numero_telefono, fecha_nacimiento)
+    VALUES (@nombre, @correo, @contrasena, @imagen_perfil, @numero_telefono, @fecha_nacimiento);
 
-    SET @id_organizacion = SCOPE_IDENTITY();
-  END
+    DECLARE @id_usuario INT = SCOPE_IDENTITY();
 
-  -- Asignar a organización
-  EXEC sp_AsignarUsuarioAOrganizacion @id_usuario, @id_organizacion, @rol;
+    -- Si es admin, crear nueva organización
+    IF @rol_nombre = 'admin'
+    BEGIN
+        INSERT INTO Organizaciones (nombre)
+        VALUES (@nombre_organizacion + ' Org');
 
-  -- Si el rol es colaborador o cliente y viene con proyecto, asignarlo
-  IF @rol IN ('colaborador', 'cliente') AND @id_proyecto IS NOT NULL
-  BEGIN
-    EXEC sp_AsignarUsuarioAProyecto @id_usuario, @id_proyecto, @rol;
-  END
+        SET @id_organizacion = SCOPE_IDENTITY();
+    END
 
-  -- Retornar el ID
-  SELECT @id_usuario AS usuario_id, @id_organizacion AS organizacion_id;
+    -- Asignar usuario a la organización
+    EXEC sp_AsignarUsuarioAOrganizacion @id_usuario, @id_organizacion, @id_rol;
+
+    -- Si el rol es colaborador o cliente y viene con proyecto, asignarlo
+    IF @rol_nombre IN ('colaborador', 'cliente') AND @id_proyecto IS NOT NULL
+    BEGIN
+        EXEC sp_AsignarUsuarioAProyecto @id_usuario, @id_proyecto;
+    END
+
+    -- Retornar ID de usuario y organización
+    SELECT @id_usuario AS usuario_id, @id_organizacion AS organizacion_id;
 END
 GO
+
+
+---<<> Prodedimientos almacernados controlados<><>---
+
+
+
+GO
+CREATE PROCEDURE sp_ObtenerInformacionUsuario
+    @correo NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        U.id,
+        U.nombre AS usuario_nombre,
+        U.correo,
+        U.contrasena,
+        U.numero_telefono,
+        U.fecha_nacimiento,
+        O.id AS id_organizacion,
+        O.nombre AS nombre_organizacion,
+        R.id AS id_rol,
+        R.nombre_rol,
+        STRING_AGG(P.permiso, ', ') AS permisos
+    FROM 
+        Usuarios U
+    INNER JOIN 
+        Usuarios_Organizaciones UO ON U.id = UO.id_usuario
+    INNER JOIN 
+        Organizaciones O ON UO.id_organizacion = O.id
+    INNER JOIN 
+        Roles R ON UO.id_rol = R.id
+    INNER JOIN 
+        Roles_Permisos RP ON R.id = RP.id_rol
+    INNER JOIN 
+        Permisos P ON RP.id_permiso = P.id
+    WHERE 
+        U.correo = @correo
+    GROUP BY 
+        U.id, U.nombre, U.correo, U.numero_telefono, U.fecha_nacimiento,
+        O.id, O.nombre,
+        R.id, R.nombre_rol
+    ORDER BY 
+        U.id, O.nombre, R.nombre_rol;
+END;
+GO
+
+
+
+
+
+
+
+
+
 
 
 
