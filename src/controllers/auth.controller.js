@@ -20,7 +20,7 @@ async function registerUser(userData) {
     // Verificar si el correo ya está registrado
     const userExists = await pool.request()
       .input('correo', correo)
-      .query('SELECT 1 FROM Usuarios WHERE correo = @correo');
+      .execute('sp_CompararContrasena');
 
     if (userExists.recordset.length > 0) {
       throw new Error('El usuario ya existe');
@@ -39,7 +39,6 @@ async function registerUser(userData) {
     if (token) {
       try {
         const invitacion = jwt.verify(token, process.env.JWT_SECRET);
-        
         rol = invitacion.rol;
         id_organizacion = invitacion.id_organizacion || null;
         id_proyecto = invitacion.id_proyecto || null;
