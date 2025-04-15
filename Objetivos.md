@@ -9,6 +9,8 @@
     -- Creacion de los 3 tipos de usuarios
     -- Invitar a usuarios a una organizacion mediante correo electronico y tokens
     -- Creacion de Organizaciones
+    -- Actualizacion de informacion de usuario
+    -- Eliminacion de usuario
 
 
 
@@ -18,9 +20,9 @@
 
 
 # Objetivos por alcanzar
-- Creacion de Permisos
-- Creacion de tareas
-- Asignacion de tareas
-- Creacion de etiquetas
-- Creacion de comentarios
-- Creacion de estados
+-- Noficaciones
+-- Files
+-- Comentarios
+-- Tareas
+-- Calendario
+-- 

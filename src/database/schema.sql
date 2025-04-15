@@ -527,6 +527,28 @@ BEGIN
 END;
 GO
 
+-- Procedimiento para actualizar un usuario
+DROP PROCEDURE IF EXISTS sp_ActualizarUsuario;
+GO
+CREATE PROCEDURE sp_ActualizarUsuario
+    @id INT,
+    @nombre NVARCHAR(255),
+    @imagen_perfil NVARCHAR(255) = NULL, -- Optional
+    @numero_telefono NVARCHAR(20) = NULL, -- Optional
+    @fecha_nacimiento DATE = NULL -- Optional
+AS
+BEGIN
+    UPDATE Usuarios
+    SET nombre = @nombre,
+        imagen_perfil = @imagen_perfil,
+        numero_telefono = @numero_telefono,
+        fecha_nacimiento = @fecha_nacimiento
+    WHERE id = @id;
+    
+    SELECT * FROM Usuarios WHERE id = @id;
+END;
+GO
+
 ---<<> Prodedimientos almacernados controlados<><>---
 
 
@@ -857,28 +879,6 @@ BEGIN
 END;
 GO
 
-
--- Procedimiento para actualizar un usuario
-DROP PROCEDURE IF EXISTS ActualizarUsuario;
-GO
-CREATE PROCEDURE ActualizarUsuario
-    @id INT,
-    @nombre NVARCHAR(255),
-    @imagen_perfil NVARCHAR(255) = NULL, -- Optional
-    @numero_telefono NVARCHAR(20) = NULL, -- Optional
-    @fecha_nacimiento DATE = NULL -- Optional
-AS
-BEGIN
-    UPDATE Usuarios
-    SET nombre = @nombre,
-        imagen_perfil = @imagen_perfil,
-        numero_telefono = @numero_telefono,
-        fecha_nacimiento = @fecha_nacimiento
-    WHERE id = @id;
-    
-    SELECT * FROM Usuarios WHERE id = @id;
-END;
-GO
 
 -- Procedimiento para obtener roles de un usuario
 DROP PROCEDURE IF EXISTS ObtenerRolesDeUsuario;

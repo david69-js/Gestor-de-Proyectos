@@ -64,7 +64,7 @@ async function deleteUser(userId) {
         // Eliminar el usuario
         const result = await pool.request()
             .input('id_usuario', userId)
-            .execute('EliminarUsuario');
+            .execute('sp_EliminarUsuario');
 
         if (result.rowsAffected[0] > 0) {
             return { message: 'User and related records deleted successfully' };
