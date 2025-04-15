@@ -431,9 +431,6 @@ BEGIN
 END
 GO
 
------------------------------------------------------------------
-
-
 
 DROP PROCEDURE IF EXISTS sp_ObtenerInformacionUsuario;
 GO
@@ -501,8 +498,6 @@ GO
 
 DROP PROCEDURE IF EXISTS sp_CambiarContrasena;
 GO
-
--- Create the stored procedure
 CREATE PROCEDURE sp_CambiarContrasena
     @userId INT,
     @nueva_contrasena NVARCHAR(255)
@@ -514,6 +509,21 @@ BEGIN
     UPDATE Usuarios
     SET contrasena = @nueva_contrasena
     WHERE id = @userId;
+END;
+GO
+
+
+-- Procedimiento para eliminar un usuario
+DROP PROCEDURE IF EXISTS sp_EliminarUsuario;
+GO
+CREATE PROCEDURE sp_EliminarUsuario
+    @id_usuario INT
+AS
+BEGIN
+    IF EXISTS (SELECT 1 FROM Usuarios WHERE id = @id_usuario)
+    BEGIN
+        DELETE FROM Usuarios WHERE id= @id_usuario;
+    END;
 END;
 GO
 
@@ -553,19 +563,6 @@ BEGIN
 END;
 GO
 
--- Procedimiento para eliminar un usuario
-DROP PROCEDURE IF EXISTS EliminarUsuario;
-GO
-CREATE PROCEDURE EliminarUsuario
-    @id_usuario INT
-AS
-BEGIN
-    IF EXISTS (SELECT 1 FROM Usuarios WHERE id = @id_usuario)
-    BEGIN
-        DELETE FROM Usuarios WHERE id= @id_usuario;
-    END;
-END;
-GO
 
 -- Procedimiento para insertar un rol
 DROP PROCEDURE IF EXISTS InsertarRol;

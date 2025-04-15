@@ -57,13 +57,13 @@ async function changePassword(userId, passwordData) {
     }
 }
 
-async function deleteUser(id) {
+async function deleteUser(userId) {
     try {
         const pool = await getConnection();
 
         // Eliminar el usuario
         const result = await pool.request()
-            .input('id_usuario', id)
+            .input('id_usuario', userId)
             .execute('EliminarUsuario');
 
         if (result.rowsAffected[0] > 0) {
