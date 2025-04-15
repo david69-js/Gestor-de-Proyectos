@@ -132,6 +132,8 @@ async function loginUser(userData) {
             { expiresIn: '24h' }
         );
 
+        console.log(token) 
+
         // Return user info without password
         return {
             user: userDetails,

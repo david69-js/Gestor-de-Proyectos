@@ -23,6 +23,8 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
     try {
         const { user, token, roles } = await loginUser(req.body);
+        console.log(req)
+
         res.json({ user, token, roles });
     } catch (error) {
         console.error('Error logging in:', error);

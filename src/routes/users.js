@@ -21,8 +21,11 @@ router.get('/:id', async (req, res) => {
 
 // Change password
 router.post('/change-password', async (req, res) => {
+    console.log(req.user.id, req.body)
     try {
         const message = await changePassword(req.user.id, req.body);
+
+
         res.json(message);
     } catch (error) {
         console.error('Error changing password:', error);
