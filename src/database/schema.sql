@@ -429,10 +429,8 @@ END
 GO
 
 
----<<> Prodedimientos almacernados controlados<><>---
-
-
-
+--- Procedimiento para obtener información del usuario
+DROP PROCEDURE IF EXISTS sp_ObtenerInformacionUsuario;
 GO
 CREATE PROCEDURE sp_ObtenerInformacionUsuario
     @correo NVARCHAR(100)
@@ -476,8 +474,18 @@ END;
 GO
 
 
+--- Procedimiento para obtner contrasena
+DROP PROCEDURE IF EXISTS sp_CompararContrasena;
+GO
+CREATE PROCEDURE sp_CompararContrasena
+    @correo NVARCHAR(100)
+AS
+BEGIN
+    SELECT contrasena FROM Usuarios WHERE correo = @correo
+END;
+GO
 
-
+---<<> Prodedimientos almacernados controlados<><>---
 
 
 

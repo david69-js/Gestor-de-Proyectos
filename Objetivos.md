@@ -2,7 +2,6 @@
 - Conexion a la base de datos
 - Creacion de Controladores
 - Creacion de Rutas
-
 - Creacion de Roles
 - Creacion de usuarios
 - Invitar a usuarios a una organizacion mediante correo electronico y tokens
