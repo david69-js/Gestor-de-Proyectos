@@ -41,9 +41,9 @@ router.put('/update-user', async (req, res) => {
 });
 
 // Delete user
-router.delete('/:id', async (req, res) => {
+router.delete('/', async (req, res) => {
     try {
-        const message = await deleteUser(req.params.id);
+        const message = await deleteUser(req.user.id);
         res.json(message);
     } catch (error) {
         console.error('Error deleting user:', error);

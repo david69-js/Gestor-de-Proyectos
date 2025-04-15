@@ -56,12 +56,13 @@ END;
 -- Relación entre Proyectos y Equipos
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Proyectos_Usuarios' AND xtype = 'U')
 BEGIN
-CREATE TABLE Proyectos_Usuarios (
-    id INT PRIMARY KEY IDENTITY(1,1),
-    proyecto_id INT FOREIGN KEY REFERENCES Proyectos(id),
-    usuario_id INT FOREIGN KEY REFERENCES Usuarios(id)
-);
-END;
+    CREATE TABLE Proyectos_Usuarios (
+        id INT PRIMARY KEY IDENTITY(1,1),
+        proyecto_id INT FOREIGN KEY REFERENCES Proyectos(id) ON DELETE CASCADE,
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id_usuario) ON DELETE CASCADE
+    );
+END
+
 
 -- Crear la tabla Estados_Tarea solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Estados_Tarea' AND xtype = 'U')
@@ -77,7 +78,8 @@ IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Tareas' AND xtype = 'U')
 BEGIN
     CREATE TABLE Tareas (
         id INT PRIMARY KEY IDENTITY(1,1),
-        proyecto_id INT FOREIGN KEY REFERENCES Proyectos(id),
+        proyecto_id INT FOREIGN KEY REFERENCES Proyectos(id) ON DELETE CASCADE,
+        organizacion_id INT FOREIGN KEY REFERENCES Organizaciones(id) ON DELETE CASCADE,
         nombre_tarea VARCHAR(255),
         descripcion VARCHAR(MAX),
         fecha_creacion DATETIME DEFAULT GETDATE(),
@@ -87,17 +89,17 @@ BEGIN
 END;
 
 
--- Crear la tabla Comentarios solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Comentarios' AND xtype = 'U')
 BEGIN
     CREATE TABLE Comentarios (
         id INT PRIMARY KEY IDENTITY(1,1),
-        tarea_id INT FOREIGN KEY REFERENCES Tareas(id),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
+        tarea_id INT FOREIGN KEY REFERENCES Tareas(id) ON DELETE CASCADE,
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id_usuario) ON DELETE CASCADE,
         comentario VARCHAR(MAX),
         fecha_comentario DATETIME DEFAULT GETDATE()
     );
-END;
+END
+
 
 -- Crear la tabla Archivos solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Archivos' AND xtype = 'U')
@@ -119,9 +121,10 @@ BEGIN
         nombre_evento VARCHAR(255),
         descripcion VARCHAR(MAX),
         fecha_evento DATETIME,
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id)
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id_usuario) ON DELETE CASCADE
     );
-END;
+END
+
 
 -- Crear la tabla Etiquetas solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Etiquetas' AND xtype = 'U')
@@ -137,11 +140,11 @@ IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Tareas' AND xtype
 BEGIN
     CREATE TABLE Usuarios_Tareas (
         id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
-        tarea_id INT FOREIGN KEY REFERENCES Tareas(id),
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id_usuario) ON DELETE CASCADE,
+        tarea_id INT FOREIGN KEY REFERENCES Tareas(id) ON DELETE CASCADE,
         fecha_asignacion DATETIME DEFAULT GETDATE()
     );
-END;
+END
 
 -- Crear la tabla Etiquetas_Tareas solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Etiquetas_Tareas' AND xtype = 'U')
@@ -176,7 +179,7 @@ IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Notificaciones' AND xtype 
 BEGIN
     CREATE TABLE Notificaciones (
         id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id),
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id) ON DELETE CASCADE,
         mensaje VARCHAR(255),
         fecha_notificacion DATETIME DEFAULT GETDATE(),
         leida BIT DEFAULT 0 -- Ensure 'leida' column is defined
@@ -429,10 +432,7 @@ END
 GO
 
 
----<<> Prodedimientos almacernados controlados<><>---
-
-
-
+DROP PROCEDURE IF EXISTS sp_ObtenerInformacionUsuario;
 GO
 CREATE PROCEDURE sp_ObtenerInformacionUsuario
     @correo NVARCHAR(100)
@@ -444,7 +444,6 @@ BEGIN
         U.id,
         U.nombre AS usuario_nombre,
         U.correo,
-        U.contrasena,
         U.numero_telefono,
         U.fecha_nacimiento,
         O.id AS id_organizacion,
@@ -475,9 +474,60 @@ BEGIN
 END;
 GO
 
+DROP PROCEDURE IF EXISTS sp_CompararContrasena;
+GO
+CREATE PROCEDURE sp_CompararContrasena
+    @correo NVARCHAR(100)
+AS
+BEGIN
+    SELECT contrasena FROM Usuarios WHERE correo = @correo
+END;
+GO
 
 
+DROP PROCEDURE IF EXISTS sp_CompararContrasenaPorId;
+GO
+CREATE PROCEDURE sp_CompararContrasenaPorId
+    @id NVARCHAR(100)
+AS
+BEGIN
+    SELECT contrasena FROM Usuarios WHERE id = @id
+END;
+GO
 
+
+DROP PROCEDURE IF EXISTS sp_CambiarContrasena;
+GO
+CREATE PROCEDURE sp_CambiarContrasena
+    @userId INT,
+    @nueva_contrasena NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Update password
+    UPDATE Usuarios
+    SET contrasena = @nueva_contrasena
+    WHERE id = @userId;
+END;
+GO
+
+
+-- Procedimiento para eliminar un usuario
+DROP PROCEDURE IF EXISTS sp_EliminarUsuario;
+GO
+CREATE PROCEDURE sp_EliminarUsuario
+    @id_usuario INT
+AS
+BEGIN
+    IF EXISTS (SELECT 1 FROM Usuarios WHERE id = @id_usuario)
+    BEGIN
+        DELETE FROM Usuarios WHERE id= @id_usuario;
+    END;
+END;
+GO
+
+---<<> Prodedimientos almacernados controlados<><>---
 
 
 
@@ -513,19 +563,6 @@ BEGIN
 END;
 GO
 
--- Procedimiento para eliminar un usuario
-DROP PROCEDURE IF EXISTS EliminarUsuario;
-GO
-CREATE PROCEDURE EliminarUsuario
-    @id_usuario INT
-AS
-BEGIN
-    IF EXISTS (SELECT 1 FROM Usuarios WHERE id = @id_usuario)
-    BEGIN
-        DELETE FROM Usuarios WHERE id= @id_usuario;
-    END;
-END;
-GO
 
 -- Procedimiento para insertar un rol
 DROP PROCEDURE IF EXISTS InsertarRol;
@@ -854,24 +891,5 @@ BEGIN
     FROM Roles r
     INNER JOIN Usuarios_Roles ur ON r.id = ur.rol_id
     WHERE ur.usuario_id = @id;
-END;
-GO
-
--- Drop the procedure if it already exists
-DROP PROCEDURE IF EXISTS CambiarContrasena;
-GO
-
--- Create the stored procedure
-CREATE PROCEDURE CambiarContrasena
-    @userId INT,
-    @nueva_contrasena NVARCHAR(255)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Update password
-    UPDATE Usuarios
-    SET contrasena = @nueva_contrasena
-    WHERE id = @userId;
 END;
 GO
