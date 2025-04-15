@@ -85,7 +85,7 @@ async function updateUserDetails(userId, userDetails) {
         // Update user details using the stored procedure
         await pool.request()
             .input('id', userId)
-            .input('nombre', nombre)
+            .input('nombre', nombre || null)
             .input('imagen_perfil', imagen_perfil || null)
             .input('numero_telefono', numero_telefono || null)
             .input('fecha_nacimiento', fecha_nacimiento || null)
