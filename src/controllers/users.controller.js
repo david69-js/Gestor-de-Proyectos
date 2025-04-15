@@ -21,6 +21,7 @@ async function getUserById(id) {
 
 async function changePassword(userId, passwordData) {
     const { contrasena_actual, nueva_contrasena } = passwordData;
+
     try {
         const pool = await getConnection();
 

@@ -123,16 +123,13 @@ async function loginUser(userData) {
 
         const userDetails = userInfo.recordset[0];
 
-        // Create token
         const token = jwt.sign(
             { 
-                id: user.id
+                id: userDetails.id
             },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
-
-        console.log(token) 
 
         // Return user info without password
         return {
