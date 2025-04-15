@@ -7,7 +7,7 @@ async function createInvitation(req, res) {
 
   try {
     // Validaciones mínimas
-    if (!rol || !['colaborador', 'cliente'].includes(rol)) {
+    if (!rol || ![1, 2].includes(rol)) {
       return res.status(400).json({ message: 'Rol inválido para la invitación.' });
     }
 
@@ -30,20 +30,24 @@ async function createInvitation(req, res) {
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     // Construir el enlace de invitación
-    const url_invitation = `${process.env.BASE_URL}/invitacion/${token}`;
+    const url_invitation = `http://${process.env.BASE_URL}/invitacion/${token}`;
 
-    // Enviar el correo de invitación
     const mailOptions = {
-      from: process.env.GMAIL_USER,  // Correo de tu servidor (asegúrate de configurarlo en .env)
-      to: email_destino,             // Correo de destino
+      from: process.env.GMAIL_USER,
+      to: email_destino,
       subject: 'Invitación a la Organización',
       html: `
         <h1>Invitación a la Organización</h1>
         <p>Has sido invitado a unirte a nuestra organización. Haz clic en el siguiente enlace para completar tu registro:</p>
-        <a href="${url_invitation}">${url_invitation}</a>
+        <p>${url_invitation}</p>
+        <a href="${url_invitation}" 
+           style="display:inline-block;padding:10px 20px;background-color:#007bff;color:#fff;text-decoration:none;border-radius:5px;">
+          IR A LA INVITACIÓN
+        </a>
         <p>Este enlace expirará en 7 días.</p>
       `
     };
+    
 
     await transporter.sendMail(mailOptions);
 

@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const projectsController = require('../controllers/projects.controller');
-const { checkRole, checkProjectParticipation } = require('../middleware/auth');
 
 // Get all projects
 router.get('/', async (req, res) => {
@@ -63,11 +62,5 @@ router.delete('/:id', async (req, res) => {
         res.status(500).json({ error: 'Error deleting project' });
     }
 });
-
-// Add participant
-router.post('/:id/participants', checkRole(['Administrador', 'Líder de Proyecto']), checkProjectParticipation, projectsController.addParticipant);
-
-// Remove participant
-router.delete('/:id/participants/:userId', checkRole(['Administrador', 'Líder de Proyecto']), checkProjectParticipation, projectsController.removeParticipant);
 
 module.exports = router;

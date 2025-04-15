@@ -20,7 +20,7 @@ async function registerUser(userData) {
     // Verificar si el correo ya está registrado
     const userExists = await pool.request()
       .input('correo', correo)
-      .query('SELECT 1 FROM Usuarios WHERE correo = @correo');
+      .execute('sp_CompararContrasena');
 
     if (userExists.recordset.length > 0) {
       throw new Error('El usuario ya existe');
@@ -39,7 +39,7 @@ async function registerUser(userData) {
     if (token) {
       try {
         const invitacion = jwt.verify(token, process.env.JWT_SECRET);
-        rol = invitacion.rol_id;
+        rol = invitacion.rol;
         id_organizacion = invitacion.id_organizacion || null;
         id_proyecto = invitacion.id_proyecto || null;
       } catch (err) {
@@ -102,7 +102,7 @@ async function loginUser(userData) {
         // Get user with password
         const result = await pool.request()
             .input('correo', correo)
-            .query('SELECT contrasena FROM Usuarios WHERE correo = @correo');  // Direct query instead of SP
+            .execute('sp_CompararContrasena');  // Direct query instead of SP
 
         if (result.recordset.length === 0) {
             throw new Error('Invalid credentials');
@@ -123,10 +123,9 @@ async function loginUser(userData) {
 
         const userDetails = userInfo.recordset[0];
 
-        // Create token
         const token = jwt.sign(
             { 
-                id: user.id
+                id: userDetails.id
             },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }

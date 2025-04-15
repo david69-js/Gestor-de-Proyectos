@@ -4,11 +4,17 @@
 - Creacion de Rutas
 
 - Creacion de Roles
+    -- Creaciion automatica de roles
 - Creacion de usuarios
-- Invitar a usuarios a una organizacion mediante correo electronico y tokens
-- Creacion de proyectos
-- Creacion de Organizaciones
+    -- Creacion de los 3 tipos de usuarios
+    -- Invitar a usuarios a una organizacion mediante correo electronico y tokens
+    -- Creacion de Organizaciones
 
+
+
+- Creacion de proyectos
+   -- Necesita un id de organizacion
+   -- Necesita un id de usuario 
 
 
 # Objetivos por alcanzar
