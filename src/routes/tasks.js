@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const tasksController = require('../controllers/tasks.controller');
-const { checkRole } = require('../middleware/auth');
 
 // Get all tasks
 router.get('/', tasksController.getAllTasks);
