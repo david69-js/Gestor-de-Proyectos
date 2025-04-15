@@ -485,6 +485,38 @@ BEGIN
 END;
 GO
 
+---Procedimiento para obtner contrasena por id
+DROP PROCEDURE IF EXISTS sp_CompararContrasenaPorId;
+GO
+CREATE PROCEDURE sp_CompararContrasenaPorId
+    @id NVARCHAR(100)
+AS
+BEGIN
+    SELECT contrasena FROM Usuarios WHERE id = @id
+END;
+GO
+
+
+-- Drop the procedure if it already exists
+DROP PROCEDURE IF EXISTS sp_CambiarContrasena;
+GO
+
+-- Create the stored procedure
+CREATE PROCEDURE sp_CambiarContrasena
+    @userId INT,
+    @nueva_contrasena NVARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Update password
+    UPDATE Usuarios
+    SET contrasena = @nueva_contrasena
+    WHERE id = @userId;
+END;
+GO
+
+
 ---<<> Prodedimientos almacernados controlados<><>---
 
 
@@ -862,24 +894,5 @@ BEGIN
     FROM Roles r
     INNER JOIN Usuarios_Roles ur ON r.id = ur.rol_id
     WHERE ur.usuario_id = @id;
-END;
-GO
-
--- Drop the procedure if it already exists
-DROP PROCEDURE IF EXISTS CambiarContrasena;
-GO
-
--- Create the stored procedure
-CREATE PROCEDURE CambiarContrasena
-    @userId INT,
-    @nueva_contrasena NVARCHAR(255)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Update password
-    UPDATE Usuarios
-    SET contrasena = @nueva_contrasena
-    WHERE id = @userId;
 END;
 GO

@@ -27,7 +27,7 @@ async function changePassword(userId, passwordData) {
         // Get current user
         const user = await pool.request()
             .input('id', userId)
-            .query('SELECT contrasena FROM Usuarios WHERE id = @id');
+            .execute('sp_CompararContrasenaPorId');
 
         if (user.recordset.length === 0) {
             throw new Error('User not found');
@@ -47,7 +47,7 @@ async function changePassword(userId, passwordData) {
         await pool.request()
             .input('userId', userId)
             .input('nueva_contrasena', hashedPassword)
-            .execute('CambiarContrasena');
+            .execute('sp_CambiarContrasena');
 
         return { message: 'Password updated successfully' };
     } catch (error) {

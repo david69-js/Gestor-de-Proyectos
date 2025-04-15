@@ -9,7 +9,6 @@ const { verifyToken } = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
 const invitacionesRoutes = require('./routes/invtaciones'); // Corrected import
 const usersRoutes = require('./routes/users');
-const teamsRoutes = require('./routes/teams');
 const projectsRoutes = require('./routes/projects');
 const tasksRoutes = require('./routes/tasks');
 const filesRoutes = require('./routes/files');
@@ -31,7 +30,6 @@ app.use('/api/auth', authRoutes);
 
 // Protected routes
 app.use('/api/invitaciones', verifyToken, invitacionesRoutes); // Corrected usage
-app.use('/api/teams', verifyToken, teamsRoutes);
 app.use('/api/users', verifyToken, usersRoutes);
 app.use('/api/projects',verifyToken, projectsRoutes);
 app.use('/api/tasks', verifyToken, tasksRoutes);
