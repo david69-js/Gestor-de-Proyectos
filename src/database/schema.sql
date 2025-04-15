@@ -231,10 +231,10 @@ END;
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Organizaciones' AND xtype = 'U')
 BEGIN
 CREATE TABLE Usuarios_Organizaciones (
-    id INT PRIMARY KEY IDENTITY(1,1),
+     id INT PRIMARY KEY IDENTITY(1,1),
     id_usuario INT NOT NULL,
     id_organizacion INT NOT NULL,
-    rol_organizacion VARCHAR(50),
+    id_rol INT NOT NULL, -- Aquí el ID del rol en lugar de texto
     fecha_union DATETIME DEFAULT GETDATE(),
 
     CONSTRAINT FK_Usuarios_Organizaciones_Usuario FOREIGN KEY (id_usuario)
@@ -243,7 +243,10 @@ CREATE TABLE Usuarios_Organizaciones (
 
     CONSTRAINT FK_Usuarios_Organizaciones_Organizacion FOREIGN KEY (id_organizacion)
         REFERENCES Organizaciones(id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+
+    CONSTRAINT FK_Usuarios_Organizaciones_Rol FOREIGN KEY (id_rol)
+        REFERENCES Roles(id)
 );
 END;
 
