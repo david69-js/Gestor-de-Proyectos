@@ -53,17 +53,6 @@ BEGIN
     );
 END;
 
--- Relación entre Proyectos y Equipos
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Proyectos_Usuarios' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Proyectos_Usuarios (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        proyecto_id INT FOREIGN KEY REFERENCES Proyectos(id) ON DELETE CASCADE,
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id_usuario) ON DELETE CASCADE
-    );
-END
-
-
 -- Crear la tabla Estados_Tarea solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Estados_Tarea' AND xtype = 'U')
 BEGIN

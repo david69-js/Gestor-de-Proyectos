@@ -20,9 +20,8 @@
 
 
 # Objetivos por alcanzar
--- Noficaciones
--- Files
--- Comentarios
 -- Tareas
+-- Comentarios
+-- Files
 -- Calendario
--- 
+-- Noficaciones
