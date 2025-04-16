@@ -125,13 +125,16 @@ async function deleteProject(id, token) {
     }
 }
 
-async function addParticipant(projectId, userId) {
+async function addParticipant(projectId, userId, token) {
     try {
+        const id_organizacion = token.id_organizacion;
+
         const pool = await getConnection();
         const result = await pool.request()
             .input('proyecto_id', projectId)
             .input('usuario_id', userId)
-            .execute('AgregarParticipante');
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_AgregarParticipante');
         return result.recordset[0];
     } catch (error) {
         console.error('Error adding participant:', error);
@@ -141,11 +144,13 @@ async function addParticipant(projectId, userId) {
 
 async function removeParticipant(projectId, userId) {
     try {
+        const id_organizacion = token.id_organizacion;
         const pool = await getConnection();
         const result = await pool.request()
             .input('proyecto_id', projectId)
             .input('usuario_id', userId)
-            .execute('EliminarParticipante');
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_EliminarParticipante');
         return result.recordset[0];
     } catch (error) {
         console.error('Error removing participant:', error);
