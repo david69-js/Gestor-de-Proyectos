@@ -5,7 +5,7 @@ const projectsController = require('../controllers/projects.controller');
 // Get all projects
 router.get('/', async (req, res) => {
     try {
-        const projects = await projectsController.getAllProjects();
+        const projects = await projectsController.getAllProjects(req.user);
         res.json(projects);
     } catch (error) {
         console.error('Error getting all projects:', error);
@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
 // Get project by ID with details
 router.get('/:id', async (req, res) => {
     try {
-        const project = await projectsController.getProjectById(req.params.id);
+        const project = await projectsController.getProjectById(req.params.id, req.user);
         if (!project) {
             return res.status(404).json({ error: 'Project not found' });
         }

@@ -1,10 +1,14 @@
 const { getConnection } = require('../config/db');
-const jwt = require('jsonwebtoken');
 
-async function getAllProjects() {
+async function getAllProjects(user) {
+    let id_organizacion;
     try {
+        id_organizacion = user.id_organizacion;
+
         const pool = await getConnection();
-        const result = await pool.request().execute('ObtenerProyectos');
+        const result = await pool.request()
+        .input('id_organizacion', id_organizacion)
+        .execute('sp_ObtenerProyectosPorOrganizacion');
 
         return result.recordset;
     } catch (error) {
@@ -13,12 +17,16 @@ async function getAllProjects() {
     }
 }
 
-async function getProjectById(id) {
+async function getProjectById(id, user) {
+    
+    let organizacion_id;
     try {
+        organizacion_id = user.id_organizacion;
         const pool = await getConnection();
         const result = await pool.request()
             .input('id_proyecto', id)
-            .execute('ObtenerProyectoPorId');
+            .input('id_organizacion', organizacion_id)
+            .execute('sp_ObtenerProyectoPorId');
 
         if (!result.recordset[0]) return null;
 

@@ -549,7 +549,49 @@ BEGIN
 END;
 GO
 
+DROP PROCEDURE IF EXISTS sp_CrearProyecto;
+GO
+CREATE PROCEDURE sp_CrearProyecto
+    @nombre_proyecto NVARCHAR(100),
+    @descripcion NVARCHAR(255),
+    @fecha_fin DATETIME,
+    @id_usuario INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
 
+    -- Insertar en Proyectos
+    INSERT INTO Proyectos (nombre_proyecto, descripcion, fecha_inicio, fecha_fin, id_organizacion)
+    VALUES (@nombre_proyecto, @descripcion, GETDATE(), @fecha_fin, @id_organizacion);
+
+    -- Obtener el ID recién creado
+    DECLARE @id_proyecto INT;
+    SET @id_proyecto = SCOPE_IDENTITY();
+
+    -- Insertar en Proyectos_Usuarios la relación
+    INSERT INTO Usuarios_Proyectos (id_usuario, id_proyecto)
+    VALUES (@id_usuario, @id_proyecto);
+
+    -- Devolver el ID del proyecto
+    SELECT @id_proyecto AS id_proyecto;
+END;
+GO
+
+
+-- Procedimiento para obtener un proyecto por ID
+DROP PROCEDURE IF EXISTS sp_ObtenerProyectoPorId;
+GO
+CREATE PROCEDURE sp_ObtenerProyectoPorId
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SELECT *
+    FROM Proyectos
+    WHERE id = @id_proyecto and id_organizacion = @id_organizacion;
+END;
+GO
 
 
 ---<<> Prodedimientos almacernados controlados<><>---
@@ -646,34 +688,6 @@ END;
 GO
 
 
-DROP PROCEDURE IF EXISTS sp_CrearProyecto;
-GO
-CREATE PROCEDURE sp_CrearProyecto
-    @nombre_proyecto NVARCHAR(100),
-    @descripcion NVARCHAR(255),
-    @fecha_fin DATETIME,
-    @id_usuario INT,
-    @id_organizacion INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Insertar en Proyectos
-    INSERT INTO Proyectos (nombre_proyecto, descripcion, fecha_inicio, fecha_fin, id_organizacion)
-    VALUES (@nombre_proyecto, @descripcion, GETDATE(), @fecha_fin, @id_organizacion);
-
-    -- Obtener el ID recién creado
-    DECLARE @id_proyecto INT;
-    SET @id_proyecto = SCOPE_IDENTITY();
-
-    -- Insertar en Proyectos_Usuarios la relación
-    INSERT INTO Usuarios_Proyectos (id_usuario, id_proyecto)
-    VALUES (@id_usuario, @id_proyecto);
-
-    -- Devolver el ID del proyecto
-    SELECT @id_proyecto AS id_proyecto;
-END;
-GO
 
 
 
@@ -694,18 +708,6 @@ END;
 GO
 
 
--- Procedimiento para obtener un proyecto por ID
-DROP PROCEDURE IF EXISTS ObtenerProyectoPorId;
-GO
-CREATE PROCEDURE ObtenerProyectoPorId
-    @id_proyecto INT
-AS
-BEGIN
-    SELECT *
-    FROM Proyectos
-    WHERE id = @id_proyecto;
-END;
-GO
 
 -- Procedimiento para eliminar un proyecto
 DROP PROCEDURE IF EXISTS EliminarProyecto;
