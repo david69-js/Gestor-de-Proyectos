@@ -125,7 +125,8 @@ async function loginUser(userData) {
 
         const token = jwt.sign(
             { 
-                id: userDetails.id
+                id: userDetails.id,
+                id_organizacion: userDetails.id_organizacion
             },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }

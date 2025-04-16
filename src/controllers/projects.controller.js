@@ -42,9 +42,12 @@ async function createProject(projectData, token) {
 
     // Decodificar el token y obtener el id_usuario
     let id_usuario;
+    let id_organizacion;
     try {
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET);  // Asegúrate de usar tu propia clave secreta
         id_usuario = decodedToken.id;  // Asume que id_usuario está en el payload del token
+        id_organizacion = decodedToken.id_organizacion;  // Asume que id_usuario está en el payload del token
+
     } catch (error) {
         console.error('Error al verificar el token:', error);
         throw new Error('Token inválido o expirado');
@@ -62,10 +65,9 @@ async function createProject(projectData, token) {
             .input('descripcion', descripcion)
             .input('fecha_fin', fecha_fin)
             .input('id_usuario', id_usuario)  // Pasar el id_usuario al procedimiento
+            .input('id_organizacion', id_organizacion)  // Pasar el id_usuario al procedimiento
             .execute('CrearProyecto');
-
-        const projectId = projectResult.recordset[0].id_proyecto;
-
+            
         // Confirmar la transacción después de la ejecución exitosa
         await transaction.commit();
 

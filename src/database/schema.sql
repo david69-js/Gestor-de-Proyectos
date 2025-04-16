@@ -538,6 +538,20 @@ BEGIN
 END;
 GO
 
+-- Procedimiento para obtener todos los proyectos
+DROP PROCEDURE IF EXISTS sp_ObtenerProyectosPorOrganizacion;
+GO
+CREATE PROCEDURE sp_ObtenerProyectosPorOrganizacion
+    @id_organizacion INT
+AS
+BEGIN
+    SELECT * FROM Proyectos WHERE organizacion_id = @id_organizacion;
+END;
+GO
+
+
+
+
 ---<<> Prodedimientos almacernados controlados<><>---
 
 
@@ -632,13 +646,14 @@ END;
 GO
 
 
-DROP PROCEDURE IF EXISTS CrearProyecto;
+DROP PROCEDURE IF EXISTS sp_CrearProyecto;
 GO
-CREATE PROCEDURE CrearProyecto
+CREATE PROCEDURE sp_CrearProyecto
     @nombre_proyecto NVARCHAR(100),
     @descripcion NVARCHAR(255),
     @fecha_fin DATETIME,
     @id_usuario INT
+    @id_organizacion INT
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -678,17 +693,6 @@ BEGIN
 END;
 GO
 
-
-
--- Procedimiento para obtener todos los proyectos
-DROP PROCEDURE IF EXISTS ObtenerProyectos;
-GO
-CREATE PROCEDURE ObtenerProyectos
-AS
-BEGIN
-    SELECT * FROM Proyectos;
-END;
-GO
 
 -- Procedimiento para obtener un proyecto por ID
 DROP PROCEDURE IF EXISTS ObtenerProyectoPorId;
