@@ -29,7 +29,7 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const newProject = await projectsController.createProject(req.body, req.headers.authorization?.split(' ')[1]);
+        const newProject = await projectsController.createProject(req.body, req.user);
         res.status(201).json(newProject);
     } catch (error) {
         console.error('Error creating project:', error);

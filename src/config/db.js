@@ -74,7 +74,6 @@ async function verifySchemaVersion(pool) {
     const procedures = [
       'sp_AsignarUsuarioAOrganizacion',
       'sp_AsignarUsuarioAProyecto',
-      'sp_AsignarUsuarioAOrganizacion',
       'sp_SetupRolesYPermisos',
       'CambiarContrasena',
       'ObtenerUsuarioPorId',

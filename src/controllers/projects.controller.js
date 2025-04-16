@@ -44,19 +44,19 @@ async function createProject(projectData, token) {
     let id_usuario;
     let id_organizacion;
     try {
-        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);  // Asegúrate de usar tu propia clave secreta
-        id_usuario = decodedToken.id;  // Asume que id_usuario está en el payload del token
-        id_organizacion = decodedToken.id_organizacion;  // Asume que id_usuario está en el payload del token
+        id_usuario = token.id; 
+        id_organizacion = token.id_organizacion;
 
     } catch (error) {
-        console.error('Error al verificar el token:', error);
-        throw new Error('Token inválido o expirado');
+        console.error('Crendenciales invalidas:', error);
+        throw new Error('Crendenciales invalidas o expiradas');
     }
 
     const pool = await getConnection();
+    let transaction = null;
     
     try {
-        const transaction = pool.transaction();
+         transaction = pool.transaction();
         await transaction.begin();
 
         const request = transaction.request();
@@ -65,9 +65,10 @@ async function createProject(projectData, token) {
             .input('descripcion', descripcion)
             .input('fecha_fin', fecha_fin)
             .input('id_usuario', id_usuario)  // Pasar el id_usuario al procedimiento
-            .input('id_organizacion', id_organizacion)  // Pasar el id_usuario al procedimiento
-            .execute('CrearProyecto');
-            
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_CrearProyecto');
+
+
         // Confirmar la transacción después de la ejecución exitosa
         await transaction.commit();
 

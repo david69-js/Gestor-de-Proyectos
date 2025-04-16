@@ -334,7 +334,7 @@ BEGIN
   SET NOCOUNT ON;
 
   -- Ensure the column names match the table definition
-  INSERT INTO Usuarios_Organizaciones (id_usuario, id_organizacion, id_rol)
+  INSERT INTO Usuarios_Organizaciones (id, id_organizacion, id_rol)
   VALUES (@id_usuario, @id_organizacion, @id_rol);
 END
 GO
@@ -348,7 +348,7 @@ AS
 BEGIN
   SET NOCOUNT ON;
 
-  INSERT INTO Proyectos_Usuarios (usuario_id, proyecto_id)
+  INSERT INTO Usuarios_Proyectos (id_usuario, id_proyecto)
   VALUES (@id_usuario, @id_proyecto);
 END
 GO
@@ -652,23 +652,23 @@ CREATE PROCEDURE sp_CrearProyecto
     @nombre_proyecto NVARCHAR(100),
     @descripcion NVARCHAR(255),
     @fecha_fin DATETIME,
-    @id_usuario INT
+    @id_usuario INT,
     @id_organizacion INT
 AS
 BEGIN
     SET NOCOUNT ON;
 
     -- Insertar en Proyectos
-    INSERT INTO Proyectos (nombre_proyecto, descripcion, fecha_inicio, fecha_fin)
-    VALUES (@nombre_proyecto, @descripcion, GETDATE(), @fecha_fin);
+    INSERT INTO Proyectos (nombre_proyecto, descripcion, fecha_inicio, fecha_fin, id_organizacion)
+    VALUES (@nombre_proyecto, @descripcion, GETDATE(), @fecha_fin, @id_organizacion);
 
     -- Obtener el ID recién creado
     DECLARE @id_proyecto INT;
     SET @id_proyecto = SCOPE_IDENTITY();
 
     -- Insertar en Proyectos_Usuarios la relación
-    INSERT INTO Proyectos_Usuarios (proyecto_id, usuario_id)
-    VALUES (@id_proyecto, @id_usuario);
+    INSERT INTO Usuarios_Proyectos (id_usuario, id_proyecto)
+    VALUES (@id_usuario, @id_proyecto);
 
     -- Devolver el ID del proyecto
     SELECT @id_proyecto AS id_proyecto;
