@@ -32,12 +32,10 @@ async function getProjectById(id, user) {
 
         const project = result.recordset[0];
         const tasks = result.recordsets[1];
-        const participants = result.recordsets[2];
 
         return {
             ...project,
-            tasks: tasks,
-            participants: participants
+            tasks: tasks
         };
     } catch (error) {
         console.error('Error getting project by id:', error);
@@ -91,17 +89,20 @@ async function createProject(projectData, token) {
     }
 }
 
-async function updateProject(id, projectData) {
+async function updateProject(id, projectData, token) {
     try {
-        const { nombre_proyecto, descripcion, fecha_inicio, fecha_fin } = projectData;
+        const { nombre_proyecto, descripcion, fecha_fin } = projectData;
+        const id_organizacion = token.id_organizacion;
+        
         const pool = await getConnection();
         const result = await pool.request()
-            .input('id', id)
+            .input('id_proyecto', id)
             .input('nombre_proyecto', nombre_proyecto)
             .input('descripcion', descripcion)
-            .input('fecha_inicio', fecha_inicio)
             .input('fecha_fin', fecha_fin)
-            .execute('ActualizarProyecto');
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_ActualizarProyecto');
+            
         return result.recordset[0];
     } catch (error) {
         console.error('Error updating project:', error);
@@ -109,13 +110,15 @@ async function updateProject(id, projectData) {
     }
 }
 
-async function deleteProject(id) {
+async function deleteProject(id, token) {
     try {
+        const id_organizacion = token.id_organizacion;
         const pool = await getConnection();
-        const result = await pool.request()
-            .input('id', id)
-            .execute('EliminarProyecto');
-        return result.recordset[0];
+        await pool.request()
+            .input('id_proyecto', id)
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_EliminarProyecto');
+        return { message: 'Project deleted successfully' };
     } catch (error) {
         console.error('Error deleting project:', error);
         throw error;

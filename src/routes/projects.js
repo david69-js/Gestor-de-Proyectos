@@ -39,7 +39,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
     try {
-        const updatedProject = await projectsController.updateProject(req.params.id, req.body);
+        const updatedProject = await projectsController.updateProject(req.params.id, req.body, req.user);
         if (!updatedProject) {
             return res.status(404).json({ error: 'Project not found' });
         }
@@ -52,7 +52,7 @@ router.put('/:id', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
     try {
-        const deletedProject = await projectsController.deleteProject(req.params.id);
+        const deletedProject = await projectsController.deleteProject(req.params.id, req.user);
         if (!deletedProject) {
             return res.status(404).json({ error: 'Project not found' });
         }

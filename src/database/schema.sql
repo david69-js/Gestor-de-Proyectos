@@ -593,6 +593,60 @@ BEGIN
 END;
 GO
 
+DROP PROCEDURE IF EXISTS sp_ActualizarProyecto;
+GO
+CREATE PROCEDURE sp_ActualizarProyecto
+    @id_proyecto INT,
+    @nombre_proyecto NVARCHAR(100) = NULL,
+    @descripcion NVARCHAR(255) = NULL,
+    @fecha_fin DATETIME = NULL,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Verify if project exists and belongs to the organization
+    IF NOT EXISTS (SELECT 1 FROM Proyectos WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Update project using COALESCE to keep existing values if parameter is NULL
+    UPDATE Proyectos
+    SET 
+        nombre_proyecto = CASE WHEN @nombre_proyecto IS NULL THEN nombre_proyecto ELSE @nombre_proyecto END,
+        descripcion = CASE WHEN @descripcion IS NULL THEN descripcion ELSE @descripcion END,
+        fecha_fin = CASE WHEN @fecha_fin IS NULL THEN fecha_fin ELSE @fecha_fin END
+    WHERE id = @id_proyecto AND id_organizacion = @id_organizacion;
+
+    -- Return updated project
+    SELECT *
+    FROM Proyectos
+    WHERE id = @id_proyecto;
+END;
+GO
+
+
+DROP PROCEDURE IF EXISTS sp_EliminarProyecto;
+GO
+CREATE PROCEDURE sp_EliminarProyecto
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Proyectos WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    DELETE FROM Proyectos WHERE id = @id_proyecto;
+    
+    -- Return success message
+    SELECT 'Proyecto eliminado exitosamente' as message;
+END;
+GO
 
 ---<<> Prodedimientos almacernados controlados<><>---
 
@@ -710,18 +764,6 @@ GO
 
 
 -- Procedimiento para eliminar un proyecto
-DROP PROCEDURE IF EXISTS EliminarProyecto;
-GO
-CREATE PROCEDURE EliminarProyecto
-    @id_proyecto INT
-AS
-BEGIN
-    IF EXISTS (SELECT 1 FROM Proyectos WHERE id = @id_proyecto)
-    BEGIN
-        DELETE FROM Proyectos WHERE id = @id_proyecto;
-    END;
-END;
-GO
 
 -- Procedimiento para insertar una tarea
 DROP PROCEDURE IF EXISTS InsertarTarea;
