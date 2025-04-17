@@ -133,7 +133,6 @@ async function deleteTaskByProjectOrg(id_tarea, id_project, id_organizacion, id_
 }
 
 async function assignTaskToUser(id_tarea, id_usuario, id_project, id_organizacion) {
-    console.log('Tarea:',id_tarea, 'usuarioID:', id_usuario, 'ProyectID', id_project, 'Organizacion:',id_organizacion);
     const pool = await getConnection();
     try {
         const result = await pool.request()
