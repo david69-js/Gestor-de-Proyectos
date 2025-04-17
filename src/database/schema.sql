@@ -284,9 +284,9 @@ BEGIN
     
 END;
 GO
-
--- Ejecutar el procedimiento
 EXEC sp_SetupRolesYPermisos;
+GO
+
 
 DROP PROCEDURE IF EXISTS sp_CrearOrganizacion;
 GO
@@ -643,8 +643,6 @@ BEGIN
 END;
 GO
 
----<<> Prodedimientos almacernados controlados<><>---
-
 -- Procedure to add participant
 DROP PROCEDURE IF EXISTS sp_AgregarParticipante;
 GO
@@ -781,30 +779,147 @@ BEGIN
 END;
 GO
 
-
-
-
-
-
-
-
-
--- Check and correct any syntax errors related to 'estado_id'
--- Example procedure definition
-DROP PROCEDURE IF EXISTS InsertarTarea;
+-- Procedimiento para obtener todas las tareas
+DROP PROCEDURE IF EXISTS sp_ObtenerTareasPorOrganizacion;
 GO
-CREATE PROCEDURE InsertarTarea
-    @proyecto_id INT,
-    @titulo NVARCHAR(100),
+CREATE PROCEDURE sp_ObtenerTareasPorOrganizacion
+    @id_organizacion INT,
+    @id_proyecto INT
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no es parte de la organizacion.', 1;
+    END
+
+    SELECT 
+        p.id AS proyecto_id,
+        p.nombre_proyecto,
+        t.nombre_tarea,
+        t.id AS TareaId,
+        t.proyecto_id
+    FROM Tareas t
+    INNER JOIN Proyectos p ON p.id = t.proyecto_id
+    INNER JOIN Organizaciones o ON  o.id = @id_organizacion 
+    WHERE p.id = @id_proyecto;
+END;
+GO
+
+
+DROP PROCEDURE IF EXISTS sp_ObtenerTareaIdPorOrganizacion;
+GO
+CREATE PROCEDURE sp_ObtenerTareaIdPorOrganizacion
+    @id_tarea INT,
+    @id_organizacion INT,
+    @id_proyecto INT
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no es parte de la organizacion.', 1;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Tareas
+        WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'La tarea no existe o no es parte del proyecto.', 1;
+    END
+
+    SELECT 
+        p.id AS proyecto_id,
+        p.nombre_proyecto,
+        t.*
+    FROM Tareas t
+    INNER JOIN Proyectos p ON p.id = t.proyecto_id
+    INNER JOIN Organizaciones o ON  o.id = @id_organizacion 
+    WHERE t.id = @id_tarea;
+END;
+GO
+
+
+DROP PROCEDURE IF EXISTS sp_InsertarEstadosTarea;
+GO
+CREATE PROCEDURE sp_InsertarEstadosTarea
+AS
+BEGIN
+    -- Insertar estados si no existen (previene duplicados)
+    IF NOT EXISTS (SELECT 1 FROM Estados_Tarea WHERE estado = 'Por hacer')
+        INSERT INTO Estados_Tarea (estado) VALUES ('Por hacer');
+
+    IF NOT EXISTS (SELECT 1 FROM Estados_Tarea WHERE estado = 'En progreso')
+        INSERT INTO Estados_Tarea (estado) VALUES ('En progreso');
+
+    IF NOT EXISTS (SELECT 1 FROM Estados_Tarea WHERE estado = 'Listo')
+        INSERT INTO Estados_Tarea (estado) VALUES ('Listo');
+END;
+GO
+EXEC sp_InsertarEstadosTarea;
+GO
+
+
+
+DROP PROCEDURE IF EXISTS sp_CrearTarea;
+GO
+CREATE PROCEDURE sp_CrearTarea
+    @id_proyecto INT,
+    @id_organizacion INT,
+    @id_usuario INT,
+    @nombre_tarea NVARCHAR(100),
     @descripcion NVARCHAR(255),
     @fecha_limite DATETIME,
     @estado_id INT -- Ensure 'estado_id' is correctly used
 AS
 BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar si el proyecto existe en la organización
+    IF NOT EXISTS (SELECT 1 FROM Proyectos
+                   WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no es parte de la organizacion.', 1;
+    END
+
+    -- Validar si el usuario pertenece al proyecto
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Proyectos
+                   WHERE id_usuario = @id_usuario AND id_proyecto = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El usuario no pertenece al proyecto.', 1;
+    END
+
+    -- Insertar tarea
     INSERT INTO Tareas (proyecto_id, nombre_tarea, descripcion, fecha_creacion, fecha_limite, estado_id)
-    VALUES (@proyecto_id, @titulo, @descripcion, GETDATE(), @fecha_limite, @estado_id);
+    VALUES (@id_proyecto, @nombre_tarea, @descripcion, GETDATE(), @fecha_limite, @estado_id);
+
+    DECLARE @id_tarea INT;
+    SET @id_tarea = SCOPE_IDENTITY(); -- Obtiene el ID de la tarea recién insertada
+
+    -- Verificar si el usuario ya está asignado a esta tarea
+    IF EXISTS (SELECT 1 FROM Usuarios_Tareas WHERE usuario_id = @id_usuario AND tarea_id = @id_tarea)
+    BEGIN
+        THROW 50001, 'El usuario ya está asignado a esta tarea.', 1;
+    END
+
+    -- Asignar al usuario a la tarea
+    INSERT INTO Usuarios_Tareas (usuario_id, tarea_id)
+    VALUES (@id_usuario, @id_tarea);
+
+    SELECT 
+        t.*
+    FROM Tareas t
+    WHERE t.id = @id_tarea;
+
+    PRINT 'Tarea creada y usuario asignado correctamente.';
 END;
 GO
+
+
+
+---<<> Prodedimientos almacernados controlados<><>---
+
+
+
 
 -- Procedimiento para obtener todos los usuarios
 DROP PROCEDURE IF EXISTS ObtenerUsuarios;
@@ -864,16 +979,6 @@ AS
 BEGIN
     INSERT INTO Tareas (proyecto_id, nombre_tarea, descripcion, fecha_creacion, fecha_limite, estado_id)
     VALUES (@proyecto_id, @titulo, @descripcion, GETDATE(), @fecha_limite, @estado_id);
-END;
-GO
-
--- Procedimiento para obtener todas las tareas
-DROP PROCEDURE IF EXISTS ObtenerTareas;
-GO
-CREATE PROCEDURE ObtenerTareas
-AS
-BEGIN
-    SELECT * FROM Tareas;
 END;
 GO
 

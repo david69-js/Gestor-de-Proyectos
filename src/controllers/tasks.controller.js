@@ -1,25 +1,32 @@
-const db = require('../config/db');
+const { getConnection } = require('../config/db');
 
-async function getAllTasks(req, res) {
+async function getAllTasksByOrganizacion(projectId, id_organizacion) {
     try {
+
         const pool = await getConnection();
-        const result = await pool.request().execute('ObtenerTareas');
-        res.json(result.recordset);
+        const result = await pool.request()
+        .input('id_proyecto', projectId)
+        .input('id_organizacion', id_organizacion)
+        .execute('sp_ObtenerTareasPorOrganizacion');
+        
+        return result.recordset;
     } catch (error) {
         console.error('Error getting tasks:', error);
         res.status(500).json({ error: 'Error getting tasks' });
     }
 }
 
-async function getTaskById(req, res) {
+async function getTaskById(projectId, id_organizacion, id_tarea) {
     try {
         const pool = await getConnection();
         const result = await pool.request()
-            .input('id', req.params.id)
-            .execute('ObtenerTareaPorId');
+        .input('id_proyecto', projectId)
+        .input('id_organizacion', id_organizacion)
+        .input('id_tarea', id_tarea)
+        .execute('sp_ObtenerTareaIdPorOrganizacion');
         
         if (result.recordset[0]) {
-            res.json(result.recordset[0]);
+           result.recordset[0];
         } else {
             res.status(404).json({ error: 'Task not found' });
         }
@@ -29,198 +36,143 @@ async function getTaskById(req, res) {
     }
 }
 
-const { getConnection } = require('../config/db');
 
-async function createTask(req, res) {
-    const { proyecto_id, nombre_tarea, descripcion, fecha_limite, estado_id, usuarios } = req.body;
+async function createTaskByProjectOrg(tarea, id_project, id_organizacion, id_usuario) {
+    const { nombre_tarea, descripcion, fecha_limite, estado_id } = tarea;
+
+    if (!id_usuario || !id_organizacion || !id_project) {
+        throw new Error('Credenciales inválidas o expiradas');
+    }
+
     const pool = await getConnection();
-    
-    try {
-        await pool.request().query('BEGIN TRANSACTION');
+    let transaction = null;
 
-        const taskResult = await pool.request()
-            .input('proyecto_id', proyecto_id)
+    try {
+        transaction = pool.transaction();
+        await transaction.begin();
+        console.log('Transacción iniciada correctamente');
+
+        const request = transaction.request();
+        const taskResult = await request
+            .input('id_proyecto', id_project)
+            .input('id_organizacion', id_organizacion)
+            .input('id_usuario', id_usuario)
             .input('nombre_tarea', nombre_tarea)
             .input('descripcion', descripcion)
             .input('fecha_limite', fecha_limite)
             .input('estado_id', estado_id)
-            .execute('CrearTarea');
+            .execute('sp_CrearTarea');
 
-        const taskId = taskResult.recordset[0].id_tarea;
+        await transaction.commit();
+        console.log('Transacción completada correctamente');
 
-        if (usuarios && usuarios.length > 0) {
-            for (const usuarioId of usuarios) {
-                await pool.request()
-                    .input('usuario_id', usuarioId)
-                    .input('tarea_id', taskId)
-                    .execute('AsignarTareaAUsuario');
+        return taskResult.recordset;
+    } catch (error) {
+        if (transaction && transaction._aborted !== true) {
+            try {
+                console.log('Error detectado, realizando rollback...');
+                await transaction.rollback();
+            } catch (rollbackError) {
+                console.error('Error haciendo rollback:', rollbackError);
             }
         }
-
-        await pool.request().query('COMMIT');
-        res.status(201).json(taskResult.recordset[0]);
-    } catch (error) {
-        await pool.request().query('ROLLBACK');
-        console.error('Error creating task:', error);
-        res.status(500).json({ error: 'Error creating task' });
+        console.error('Error creando tarea:', error);
+        throw error;
     }
 }
 
-async function updateTask(req, res) {
-    const { proyecto_id, nombre_tarea, descripcion, fecha_limite, estado_id, usuarios } = req.body;
-    const id = req.params.id;
-    const pool = await getConnection();
-    
-    try {
-        await pool.request().query('BEGIN TRANSACTION');
 
-        const taskResult = await pool.request()
-            .input('id_tarea', id)
-            .input('proyecto_id', proyecto_id)
+async function updateTaskByProjectOrg(taskData, id_project, id_tarea, id_organizacion, id_usuario) {
+    const { nombre_tarea, descripcion, fecha_limite, estado_id } = taskData;
+    const pool = await getConnection();
+    let transaction = null;
+
+    try {
+        transaction = pool.transaction();
+        await transaction.begin();
+
+        const request = transaction.request();
+        const taskResult = await request
+            .input('id_tarea', id_tarea)
+            .input('id_proyecto', id_project)
+            .input('id_organizacion', id_organizacion)
             .input('nombre_tarea', nombre_tarea)
             .input('descripcion', descripcion)
             .input('fecha_limite', fecha_limite)
             .input('estado_id', estado_id)
-            .execute('ActualizarTarea');
+            .execute('sp_ActualizarTarea');
 
-        if (usuarios && usuarios.length > 0) {
-            // First, remove all existing user assignments
-            await pool.request()
-                .input('tarea_id', id)
-                .execute('EliminarAsignacionesUsuario');
-
-            // Then add new user assignments
-            for (const usuarioId of usuarios) {
-                await pool.request()
-                    .input('usuario_id', usuarioId)
-                    .input('tarea_id', id)
-                    .execute('AsignarTareaAUsuario');
+        await transaction.commit();
+        return taskResult.recordset[0];
+    } catch (error) {
+        if (transaction && transaction._aborted !== true) {
+            try {
+                await transaction.rollback();
+            } catch (rollbackError) {
+                console.error('Error during rollback:', rollbackError);
             }
         }
-
-        await pool.request().query('COMMIT');
-        res.status(201).json(taskResult.recordset[0]);
-    } catch (error) {
-        await pool.request().query('ROLLBACK');
-        console.error('Error creating task:', error);
-        res.status(500).json({ error: 'Error creating task' });
+        throw error;
     }
 }
 
-async function updateTaskStatus(taskId, estado_id) {
+async function deleteTaskByProjectOrg(id_tarea, id_project, id_organizacion, id_usuario) {
     const pool = await getConnection();
-    const result = await pool.request()
-        .input('id_tarea', taskId)
-        .input('estado_id', estado_id)
-        .execute('ActualizarEstadoTarea');
-    return result.recordset[0];
-}
-
-async function deleteTask(req, res) {
     try {
-        const pool = await getConnection();
         const result = await pool.request()
-            .input('id', req.params.id)
-            .execute('EliminarTarea');
+            .input('id_tarea', id_tarea)
+            .input('id_proyecto', id_project)
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_EliminarTarea');
 
-        if (result.rowsAffected[0] > 0) {
-            res.json({ message: 'Task deleted successfully' });
-        } else {
-            res.status(404).json({ error: 'Task not found' });
-        }
+        return result.recordset[0];
     } catch (error) {
         console.error('Error deleting task:', error);
-        res.status(500).json({ error: 'Error deleting task' });
+        throw error;
     }
 }
 
-async function assignTaskToUser(taskId, userId) {
+async function assignTaskToUser(id_tarea, id_usuario, id_project, id_organizacion, id_creator) {
     const pool = await getConnection();
-    const result = await pool.request()
-        .input('tarea_id', taskId)
-        .input('usuario_id', userId)
-        .execute('AsignarTareaAUsuario');
-    return result.recordset[0];
-}
-
-async function unassignUser(req, res) {
     try {
-        const pool = await getConnection();
         const result = await pool.request()
-            .input('tarea_id', req.params.id)
-            .input('usuario_id', req.params.userId)
-            .execute('DesasignarUsuarioDeTarea');
+            .input('id_tarea', id_tarea)
+            .input('id_usuario', id_usuario)
+            .input('id_proyecto', id_project)
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_AsignarUsuarioATarea');
 
-        if (result.rowsAffected[0] > 0) {
-            res.json({ message: 'User unassigned successfully' });
-        } else {
-            res.status(404).json({ error: 'Assignment not found' });
-        }
+        return result.recordset[0];
     } catch (error) {
-        console.error('Error unassigning user:', error);
-        res.status(500).json({ error: 'Error unassigning user' });
+        console.error('Error assigning user to task:', error);
+        throw error;
     }
 }
 
-async function addComment(req, res) {
+async function addComment(comentario, id_tarea, id_project, id_organizacion, id_usuario) {
+    const pool = await getConnection();
     try {
-        const pool = await getConnection();
         const result = await pool.request()
-            .input('tarea_id', req.params.id)
-            .input('usuario_id', req.user.id)
-            .input('comentario', req.body.comentario)
-            .execute('AgregarComentario');
+            .input('id_tarea', id_tarea)
+            .input('id_usuario', id_usuario)
+            .input('id_proyecto', id_project)
+            .input('id_organizacion', id_organizacion)
+            .input('comentario', comentario)
+            .execute('sp_AgregarComentario');
 
-        res.status(201).json(result.recordset[0]);
+        return result.recordset[0];
     } catch (error) {
         console.error('Error adding comment:', error);
-        res.status(500).json({ error: 'Error adding comment' });
-    }
-}
-
-async function addTag(req, res) {
-    try {
-        const pool = await getConnection();
-        const result = await pool.request()
-            .input('tarea_id', req.params.id)
-            .input('etiqueta_id', req.body.etiqueta_id)
-            .execute('AsignarEtiquetaATarea');
-
-        res.status(201).json(result.recordset[0]);
-    } catch (error) {
-        console.error('Error adding tag:', error);
-        res.status(500).json({ error: 'Error adding tag' });
-    }
-}
-
-async function removeTag(req, res) {
-    try {
-        const pool = await getConnection();
-        const result = await pool.request()
-            .input('tarea_id', req.params.id)
-            .input('etiqueta_id', req.params.tagId)
-            .execute('EliminarEtiquetaDeTarea');
-
-        if (result.rowsAffected[0] > 0) {
-            res.json({ message: 'Tag removed successfully' });
-        } else {
-            res.status(404).json({ error: 'Tag not found' });
-        }
-    } catch (error) {
-        console.error('Error removing tag:', error);
-        res.status(500).json({ error: 'Error removing tag' });
+        throw error;
     }
 }
 
 module.exports = {
-    getAllTasks,
+    getAllTasksByOrganizacion,
     getTaskById,
-    createTask,
-    updateTask,
-    deleteTask,
+    createTaskByProjectOrg,
+    updateTaskByProjectOrg,
+    deleteTaskByProjectOrg,
     assignTaskToUser,
-    unassignUser,
-    addComment,
-    addTag,
-    removeTag
+    addComment
 };
