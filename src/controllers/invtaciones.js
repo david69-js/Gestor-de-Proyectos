@@ -7,7 +7,7 @@ async function createInvitation(req, res) {
 
   try {
     // Validaciones mínimas
-    if (!rol || ![1, 2].includes(rol)) {
+    if (!rol || ![1, 2, 3].includes(rol)) {
       return res.status(400).json({ message: 'Rol inválido para la invitación.' });
     }
 

@@ -53,17 +53,6 @@ BEGIN
     );
 END;
 
--- Relación entre Proyectos y Equipos
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Proyectos_Usuarios' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Proyectos_Usuarios (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        proyecto_id INT FOREIGN KEY REFERENCES Proyectos(id) ON DELETE CASCADE,
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id_usuario) ON DELETE CASCADE
-    );
-END
-
-
 -- Crear la tabla Estados_Tarea solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Estados_Tarea' AND xtype = 'U')
 BEGIN
@@ -113,10 +102,10 @@ BEGIN
     );
 END;
 
--- Crear la tabla Eventos_Calendar solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Eventos_Calendar' AND xtype = 'U')
+-- Crear la tabla Eventos solo si no existe <AUNPOR_REVISAR>
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Eventos' AND xtype = 'U')
 BEGIN
-    CREATE TABLE Eventos_Calendar (
+    CREATE TABLE Eventos (
         id INT PRIMARY KEY IDENTITY(1,1),
         nombre_evento VARCHAR(255),
         descripcion VARCHAR(MAX),
@@ -125,15 +114,6 @@ BEGIN
     );
 END
 
-
--- Crear la tabla Etiquetas solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Etiquetas' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Etiquetas (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        nombre_etiqueta VARCHAR(50)
-    );
-END;
 
 -- Crear la tabla Usuarios_Tareas solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Tareas' AND xtype = 'U')
@@ -146,17 +126,6 @@ BEGIN
     );
 END
 
--- Crear la tabla Etiquetas_Tareas solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Etiquetas_Tareas' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Etiquetas_Tareas (
-        tarea_id INT NOT NULL,
-        etiqueta_id INT NOT NULL,
-        PRIMARY KEY (tarea_id, etiqueta_id),
-        FOREIGN KEY (tarea_id) REFERENCES Tareas(id) ON DELETE CASCADE,
-        FOREIGN KEY (etiqueta_id) REFERENCES Etiquetas(id) ON DELETE CASCADE
-    );
-END;
 
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Invitaciones' AND xtype = 'U')
 BEGIN
@@ -315,9 +284,9 @@ BEGIN
     
 END;
 GO
-
--- Ejecutar el procedimiento
 EXEC sp_SetupRolesYPermisos;
+GO
+
 
 DROP PROCEDURE IF EXISTS sp_CrearOrganizacion;
 GO
@@ -337,16 +306,16 @@ GO
 DROP PROCEDURE IF EXISTS sp_AsignarUsuarioAOrganizacion;
 GO
 CREATE PROCEDURE sp_AsignarUsuarioAOrganizacion
-  @id_usuario INT,
-  @id_organizacion INT,
-  @id_rol INT
+    @id_usuario INT,
+    @id_organizacion INT,
+    @id_rol INT
 AS
 BEGIN
-  SET NOCOUNT ON;
+    SET NOCOUNT ON;
 
-  -- Ensure the column names match the table definition
-  INSERT INTO Usuarios_Organizaciones (id_usuario, id_organizacion, id_rol)
-  VALUES (@id_usuario, @id_organizacion, @id_rol);
+    -- Insert without specifying the identity column
+    INSERT INTO Usuarios_Organizaciones (id_usuario, id_organizacion, id_rol)
+    VALUES (@id_usuario, @id_organizacion, @id_rol);
 END
 GO
 
@@ -359,17 +328,13 @@ AS
 BEGIN
   SET NOCOUNT ON;
 
-  INSERT INTO Proyectos_Usuarios (usuario_id, proyecto_id)
+  INSERT INTO Usuarios_Proyectos (id_usuario, id_proyecto)
   VALUES (@id_usuario, @id_proyecto);
 END
 GO
 
 
 DROP PROCEDURE IF EXISTS sp_RegistrarUsuarioConInvitacion;
-GO
-
-IF OBJECT_ID('sp_RegistrarUsuarioConInvitacion', 'P') IS NOT NULL
-    DROP PROCEDURE sp_RegistrarUsuarioConInvitacion;
 GO
 
 CREATE PROCEDURE sp_RegistrarUsuarioConInvitacion
@@ -387,13 +352,11 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validar que el correo no exista
     IF EXISTS (SELECT 1 FROM Usuarios WHERE correo = @correo)
     BEGIN
         THROW 50001, 'El correo ya está registrado.', 1;
     END
 
-    -- Validar que el rol exista
     DECLARE @rol_nombre NVARCHAR(50);
     SELECT @rol_nombre = nombre_rol FROM Roles WHERE id = @id_rol;
 
@@ -402,13 +365,11 @@ BEGIN
         THROW 50002, 'El rol especificado no existe.', 1;
     END
 
-    -- Insertar usuario
     INSERT INTO Usuarios (nombre, correo, contrasena, imagen_perfil, numero_telefono, fecha_nacimiento)
     VALUES (@nombre, @correo, @contrasena, @imagen_perfil, @numero_telefono, @fecha_nacimiento);
 
     DECLARE @id_usuario INT = SCOPE_IDENTITY();
 
-    -- Si es admin, crear nueva organización
     IF @rol_nombre = 'admin'
     BEGIN
         INSERT INTO Organizaciones (nombre)
@@ -417,19 +378,24 @@ BEGIN
         SET @id_organizacion = SCOPE_IDENTITY();
     END
 
-    -- Asignar usuario a la organización
     EXEC sp_AsignarUsuarioAOrganizacion @id_usuario, @id_organizacion, @id_rol;
 
-    -- Si el rol es colaborador o cliente y viene con proyecto, asignarlo
-    IF @rol_nombre IN ('colaborador', 'cliente') AND @id_proyecto IS NOT NULL
+    IF @rol_nombre IN ('colaborador', 'cliente')
     BEGIN
-        EXEC sp_AsignarUsuarioAProyecto @id_usuario, @id_proyecto;
+        IF @id_proyecto IS NOT NULL
+        BEGIN
+            EXEC sp_AsignarUsuarioAProyecto @id_usuario, @id_proyecto;
+        END
+        ELSE
+        BEGIN
+            PRINT '⚠️ Usuario es colaborador o cliente, pero no se asignó a ningún proyecto (id_proyecto NULL).';
+        END
     END
 
-    -- Retornar ID de usuario y organización
     SELECT @id_usuario AS usuario_id, @id_organizacion AS organizacion_id;
 END
 GO
+
 
 
 DROP PROCEDURE IF EXISTS sp_ObtenerInformacionUsuario;
@@ -512,6 +478,24 @@ BEGIN
 END;
 GO
 
+-- Procedimiento para obtener un usuario por ID
+DROP PROCEDURE IF EXISTS sp_ObtenerUsuarioPorId;
+GO
+CREATE PROCEDURE sp_ObtenerUsuarioPorId
+    @id_usuario INT,
+    @id_organizacion INT
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Organizaciones WHERE id_usuario = @id_usuario AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El usuario no pertenece a la organizacion', 1;
+    END
+
+    SELECT *
+    FROM Usuarios
+    WHERE id = @id_usuario;
+END;
+GO
 
 -- Procedimiento para eliminar un usuario
 DROP PROCEDURE IF EXISTS sp_EliminarUsuario;
@@ -527,31 +511,618 @@ BEGIN
 END;
 GO
 
----<<> Prodedimientos almacernados controlados<><>---
-
-
-
-
-
-
-
-
--- Check and correct any syntax errors related to 'estado_id'
--- Example procedure definition
-DROP PROCEDURE IF EXISTS InsertarTarea;
+-- Procedimiento para actualizar un usuario
+DROP PROCEDURE IF EXISTS sp_ActualizarUsuario;
 GO
-CREATE PROCEDURE InsertarTarea
+CREATE PROCEDURE sp_ActualizarUsuario
+    @id INT,
+    @nombre NVARCHAR(255),
+    @imagen_perfil NVARCHAR(255) = NULL, -- Optional
+    @numero_telefono NVARCHAR(20) = NULL, -- Optional
+    @fecha_nacimiento DATE = NULL -- Optional
+AS
+BEGIN
+    UPDATE Usuarios
+    SET nombre = @nombre,
+        imagen_perfil = @imagen_perfil,
+        numero_telefono = @numero_telefono,
+        fecha_nacimiento = @fecha_nacimiento
+    WHERE id = @id;
+    
+    SELECT * FROM Usuarios WHERE id = @id;
+END;
+GO
+
+-- Procedimiento para obtener todos los proyectos
+DROP PROCEDURE IF EXISTS sp_ObtenerProyectosPorOrganizacion;
+GO
+CREATE PROCEDURE sp_ObtenerProyectosPorOrganizacion
+    @id_organizacion INT
+AS
+BEGIN
+    SELECT * FROM Proyectos WHERE organizacion_id = @id_organizacion;
+END;
+GO
+
+DROP PROCEDURE IF EXISTS sp_CrearProyecto;
+GO
+CREATE PROCEDURE sp_CrearProyecto
+    @nombre_proyecto NVARCHAR(100),
+    @descripcion NVARCHAR(255),
+    @fecha_fin DATETIME,
+    @id_usuario INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Insertar en Proyectos
+    INSERT INTO Proyectos (nombre_proyecto, descripcion, fecha_inicio, fecha_fin, id_organizacion)
+    VALUES (@nombre_proyecto, @descripcion, GETDATE(), @fecha_fin, @id_organizacion);
+
+    -- Obtener el ID recién creado
+    DECLARE @id_proyecto INT;
+    SET @id_proyecto = SCOPE_IDENTITY();
+
+    -- Insertar en Proyectos_Usuarios la relación
+    INSERT INTO Usuarios_Proyectos (id_usuario, id_proyecto)
+    VALUES (@id_usuario, @id_proyecto);
+
+    -- Devolver el ID del proyecto
+    SELECT @id_proyecto AS id_proyecto;
+END;
+GO
+
+
+-- Procedimiento para obtener un proyecto por ID
+DROP PROCEDURE IF EXISTS sp_ObtenerProyectoPorId;
+GO
+CREATE PROCEDURE sp_ObtenerProyectoPorId
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SELECT *
+    FROM Proyectos
+    WHERE id = @id_proyecto and id_organizacion = @id_organizacion;
+END;
+GO
+
+DROP PROCEDURE IF EXISTS sp_ActualizarProyecto;
+GO
+CREATE PROCEDURE sp_ActualizarProyecto
+    @id_proyecto INT,
+    @nombre_proyecto NVARCHAR(100) = NULL,
+    @descripcion NVARCHAR(255) = NULL,
+    @fecha_fin DATETIME = NULL,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Verify if project exists and belongs to the organization
+    IF NOT EXISTS (SELECT 1 FROM Proyectos WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Update project using COALESCE to keep existing values if parameter is NULL
+    UPDATE Proyectos
+    SET 
+        nombre_proyecto = CASE WHEN @nombre_proyecto IS NULL THEN nombre_proyecto ELSE @nombre_proyecto END,
+        descripcion = CASE WHEN @descripcion IS NULL THEN descripcion ELSE @descripcion END,
+        fecha_fin = CASE WHEN @fecha_fin IS NULL THEN fecha_fin ELSE @fecha_fin END
+    WHERE id = @id_proyecto AND id_organizacion = @id_organizacion;
+
+    -- Return updated project
+    SELECT *
+    FROM Proyectos
+    WHERE id = @id_proyecto;
+END;
+GO
+
+
+DROP PROCEDURE IF EXISTS sp_EliminarProyecto;
+GO
+CREATE PROCEDURE sp_EliminarProyecto
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Proyectos WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    DELETE FROM Proyectos WHERE id = @id_proyecto;
+    
+    -- Return success message
+    SELECT 'Proyecto eliminado exitosamente' as message;
+END;
+GO
+
+-- Procedure to add participant
+DROP PROCEDURE IF EXISTS sp_AgregarParticipante;
+GO
+CREATE PROCEDURE sp_AgregarParticipante
     @proyecto_id INT,
-    @titulo NVARCHAR(100),
+    @id_usuario INT,
+    @id_organizacion INT,
+    @rol NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar si es admin o colaborador
+    IF (@rol = 'admin' OR @rol = 'colaborador')
+    BEGIN
+        -- Verificar que el rol exista en la tabla Roles
+        IF NOT EXISTS (SELECT 1 FROM Roles WHERE nombre_rol = @rol)
+        BEGIN
+            THROW 50001, 'El rol especificado no es válido.', 1;
+        END
+
+        -- Validar si el proyecto existe
+        IF NOT EXISTS (SELECT 1 FROM Proyectos WHERE id = @proyecto_id AND id_organizacion = @id_organizacion)
+        BEGIN
+            THROW 50001, 'El proyecto no existe.', 1;
+        END
+
+        -- Validar si el usuario existe
+        IF NOT EXISTS (SELECT 1 FROM Usuarios WHERE id = @id_usuario)
+        BEGIN
+            THROW 50002, 'El usuario no existe.', 1;
+        END
+
+        -- Validar si ya existe la relación
+        IF EXISTS (SELECT 1 FROM Usuarios_Proyectos WHERE id_usuario = @id_usuario AND id_proyecto = @proyecto_id)
+        BEGIN
+            THROW 50003, 'El usuario ya está asignado a este proyecto.', 1;
+        END
+
+        IF NOT EXISTS (SELECT 1 FROM Usuarios_Organizaciones WHERE id_usuario = @id_usuario AND id_organizacion = @id_organizacion)
+        BEGIN
+            THROW 50003, 'El usuario no pertece a la organizacion.', 1;
+        END
+
+        -- Insertar relación
+        INSERT INTO Usuarios_Proyectos (id_usuario, id_proyecto)
+        VALUES (@id_usuario, @proyecto_id);
+
+        -- Retornar la relación creada
+        SELECT 
+            u.id AS usuario_id,
+            u.nombre AS usuario_nombre,
+            p.id AS proyecto_id,
+            p.nombre_proyecto
+        FROM Usuarios_Proyectos up
+        JOIN Usuarios u ON u.id = up.id_usuario
+        JOIN Proyectos p ON p.id = up.id_proyecto
+        WHERE up.id_usuario = @id_usuario AND up.id_proyecto = @proyecto_id;
+    END
+    ELSE
+    BEGIN
+        -- Si no es admin ni colaborador, lanza error
+        THROW 50004, 'Solo administradores o colaboradores pueden ser asignados.', 1;
+    END
+END;
+GO
+
+
+-- Procedure to remove participant
+DROP PROCEDURE IF EXISTS sp_EliminarParticipante;
+GO
+CREATE PROCEDURE sp_EliminarParticipante
+    @id_proyecto INT,
+    @id_usuario INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check if relation exists
+
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+                  WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El usuario no está asignado a este proyecto.', 1;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Proyectos 
+                  WHERE id_usuario = @id_usuario AND id_proyecto = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El usuario no está asignado a este proyecto.', 1;
+    END
+
+    -- Remove participant
+    DELETE FROM Usuarios_Proyectos 
+    WHERE id_usuario = @id_usuario AND id_proyecto = @id_proyecto;
+
+    -- Return success message
+    SELECT 'Participante eliminado exitosamente' as message;
+END;
+GO
+
+
+DROP PROCEDURE IF EXISTS sp_ObtenerUsuariosPorProyecto;
+GO
+CREATE PROCEDURE sp_ObtenerUsuariosPorProyecto
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check if relation exists
+
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no es parte de la organizacion.', 1;
+    END
+
+    SELECT 
+        u.id AS usuario_id,
+        u.nombre AS usuario_nombre,
+        p.id AS proyecto_id,
+        p.nombre_proyecto
+    FROM Usuarios_Proyectos up
+    INNER JOIN Usuarios u ON u.id = up.id_usuario
+    INNER JOIN Proyectos p ON p.id = up.id_proyecto
+    INNER JOIN Usuarios_Organizaciones uo ON uo.id_usuario = u.id
+    WHERE p.id = @id_proyecto;
+
+    -- Return success message
+    SELECT 'Usuarios disponibles' as message;
+END;
+GO
+
+-- Procedimiento para obtener todas las tareas
+DROP PROCEDURE IF EXISTS sp_ObtenerTareasPorOrganizacion;
+GO
+CREATE PROCEDURE sp_ObtenerTareasPorOrganizacion
+    @id_organizacion INT,
+    @id_proyecto INT
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no es parte de la organizacion.', 1;
+    END
+
+    SELECT 
+        p.id AS proyecto_id,
+        p.nombre_proyecto,
+        t.nombre_tarea,
+        t.id AS TareaId,
+        t.proyecto_id
+    FROM Tareas t
+    INNER JOIN Proyectos p ON p.id = t.proyecto_id
+    INNER JOIN Organizaciones o ON  o.id = @id_organizacion 
+    WHERE p.id = @id_proyecto;
+END;
+GO
+
+
+DROP PROCEDURE IF EXISTS sp_ObtenerTareaIdPorOrganizacion;
+GO
+CREATE PROCEDURE sp_ObtenerTareaIdPorOrganizacion
+    @id_tarea INT,
+    @id_organizacion INT,
+    @id_proyecto INT
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no es parte de la organizacion.', 1;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Tareas
+        WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'La tarea no existe o no es parte del proyecto.', 1;
+    END
+
+    SELECT 
+        p.id AS proyecto_id,
+        p.nombre_proyecto,
+        t.*
+    FROM Tareas t
+    INNER JOIN Proyectos p ON p.id = t.proyecto_id
+    INNER JOIN Organizaciones o ON  o.id = @id_organizacion 
+    WHERE t.id = @id_tarea;
+END;
+GO
+
+
+DROP PROCEDURE IF EXISTS sp_InsertarEstadosTarea;
+GO
+CREATE PROCEDURE sp_InsertarEstadosTarea
+AS
+BEGIN
+    -- Insertar estados si no existen (previene duplicados)
+    IF NOT EXISTS (SELECT 1 FROM Estados_Tarea WHERE estado = 'Por hacer')
+        INSERT INTO Estados_Tarea (estado) VALUES ('Por hacer');
+
+    IF NOT EXISTS (SELECT 1 FROM Estados_Tarea WHERE estado = 'En progreso')
+        INSERT INTO Estados_Tarea (estado) VALUES ('En progreso');
+
+    IF NOT EXISTS (SELECT 1 FROM Estados_Tarea WHERE estado = 'Listo')
+        INSERT INTO Estados_Tarea (estado) VALUES ('Listo');
+END;
+GO
+EXEC sp_InsertarEstadosTarea;
+GO
+
+
+
+DROP PROCEDURE IF EXISTS sp_CrearTarea;
+GO
+CREATE PROCEDURE sp_CrearTarea
+    @id_proyecto INT,
+    @id_organizacion INT,
+    @id_usuario INT,
+    @nombre_tarea NVARCHAR(100),
     @descripcion NVARCHAR(255),
     @fecha_limite DATETIME,
     @estado_id INT -- Ensure 'estado_id' is correctly used
 AS
 BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar si el proyecto existe en la organización
+    IF NOT EXISTS (SELECT 1 FROM Proyectos
+                   WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no es parte de la organizacion.', 1;
+    END
+
+    -- Validar si el usuario pertenece al proyecto
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Proyectos
+                   WHERE id_usuario = @id_usuario AND id_proyecto = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El usuario no pertenece al proyecto.', 1;
+    END
+
+    -- Insertar tarea
     INSERT INTO Tareas (proyecto_id, nombre_tarea, descripcion, fecha_creacion, fecha_limite, estado_id)
-    VALUES (@proyecto_id, @titulo, @descripcion, GETDATE(), @fecha_limite, @estado_id);
+    VALUES (@id_proyecto, @nombre_tarea, @descripcion, GETDATE(), @fecha_limite, @estado_id);
+
+    DECLARE @id_tarea INT;
+    SET @id_tarea = SCOPE_IDENTITY(); -- Obtiene el ID de la tarea recién insertada
+
+    -- Verificar si el usuario ya está asignado a esta tarea
+    IF EXISTS (SELECT 1 FROM Usuarios_Tareas WHERE usuario_id = @id_usuario AND tarea_id = @id_tarea)
+    BEGIN
+        THROW 50001, 'El usuario ya está asignado a esta tarea.', 1;
+    END
+
+    -- Asignar al usuario a la tarea
+    INSERT INTO Usuarios_Tareas (usuario_id, tarea_id)
+    VALUES (@id_usuario, @id_tarea);
+
+    SELECT 
+        t.*
+    FROM Tareas t
+    WHERE t.id = @id_tarea;
+
+    PRINT 'Tarea creada y usuario asignado correctamente.';
 END;
 GO
+
+DROP PROCEDURE IF EXISTS sp_ActualizarTarea;
+GO
+CREATE PROCEDURE sp_ActualizarTarea
+    @id_tarea INT,
+    @id_proyecto INT,
+    @id_organizacion INT,
+    @nombre_tarea NVARCHAR(255),
+    @descripcion NVARCHAR(MAX),
+    @fecha_limite DATETIME,
+    @estado_id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Tareas WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    BEGIN
+        THROW 50002, 'La tarea no existe o no pertenece al proyecto.', 1;
+    END
+
+    UPDATE Tareas
+    SET nombre_tarea = @nombre_tarea,
+        descripcion = @descripcion,
+        fecha_limite = @fecha_limite,
+        estado_id = @estado_id
+    WHERE id = @id_tarea;
+    
+    SELECT t.*, p.nombre_proyecto
+    FROM Tareas t
+    INNER JOIN Proyectos p ON p.id = t.proyecto_id
+    WHERE t.id = @id_tarea;
+END;
+GO
+
+-- Delete task procedure
+DROP PROCEDURE IF EXISTS sp_EliminarTarea;
+GO
+CREATE PROCEDURE sp_EliminarTarea
+    @id_tarea INT,
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validación: proyecto existe y pertenece a la organización
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+                   WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Validación: tarea existe y pertenece al proyecto
+    IF NOT EXISTS (SELECT 1 FROM Tareas 
+                   WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    BEGIN
+        THROW 50002, 'La tarea no existe o no pertenece al proyecto.', 1;
+    END
+
+    -- Eliminar asignaciones de usuarios a la tarea
+    DELETE FROM Usuarios_Tareas WHERE tarea_id = @id_tarea;
+
+    -- Eliminar la tarea
+    DELETE FROM Tareas WHERE id = @id_tarea;
+
+    -- Confirmación
+    SELECT 'Tarea eliminada exitosamente' AS message;
+END;
+GO
+
+
+-- Assign user to task procedure
+DROP PROCEDURE IF EXISTS sp_AsignarUsuarioATarea;
+GO
+CREATE PROCEDURE sp_AsignarUsuarioATarea
+    @id_tarea INT,
+    @id_usuario INT,
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Proyectos 
+        WHERE id_usuario = @id_usuario AND id_proyecto = @id_proyecto)
+    BEGIN
+        THROW 50002, 'El usuario no pertenece al proyecto.', 1;
+    END
+
+    IF EXISTS (SELECT 1 FROM Usuarios_Tareas 
+        WHERE usuario_id = @id_usuario AND tarea_id = @id_tarea)
+    BEGIN
+        THROW 50003, 'El usuario ya está asignado a esta tarea.', 1;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Organizaciones 
+        WHERE id_usuario = @id_usuario AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50003, 'El usuario no pertenece a la organizacion.', 1;
+    END
+
+    INSERT INTO Usuarios_Tareas (usuario_id, tarea_id)
+    VALUES (@id_usuario, @id_tarea);
+
+    SELECT 
+        u.id as id_usuario,
+        u.nombre as usuario_nombre,
+        t.id as tarea_id,
+        t.nombre_tarea
+        FROM Usuarios_Tareas ut
+        INNER JOIN Usuarios u ON u.id = ut.usuario_id
+        INNER JOIN Tareas t ON t.id = ut.tarea_id
+        WHERE ut.usuario_id = @id_usuario AND ut.tarea_id = @id_tarea;
+END;
+GO
+
+DROP PROCEDURE IF EXISTS sp_DesasignarUsuarioTarea;
+GO
+CREATE PROCEDURE sp_DesasignarUsuarioTarea
+    @id_tarea INT,
+    @id_usuario INT,
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate project belongs to organization
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Validate task belongs to project
+    IF NOT EXISTS (SELECT 1 FROM Tareas 
+        WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    BEGIN
+        THROW 50002, 'La tarea no existe o no pertenece al proyecto.', 1;
+    END
+
+    -- Validate user is assigned to task
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Tareas 
+        WHERE usuario_id = @id_usuario AND tarea_id = @id_tarea)
+    BEGIN
+        THROW 50003, 'El usuario no está asignado a esta tarea.', 1;
+    END
+
+    -- Remove user from task
+    DELETE FROM Usuarios_Tareas
+    WHERE usuario_id = @id_usuario AND tarea_id = @id_tarea;
+
+    -- Return confirmation
+    SELECT 'Usuario desasignado exitosamente de la tarea' AS message;
+END;
+GO
+
+-- Add comment to task procedure
+DROP PROCEDURE IF EXISTS sp_AgregarComentario;
+GO
+CREATE PROCEDURE sp_AgregarComentario
+    @id_tarea INT,
+    @id_usuario INT,
+    @id_proyecto INT,
+    @id_organizacion INT,
+    @comentario NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Tareas WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    BEGIN
+        THROW 50002, 'La tarea no existe o no pertenece al proyecto.', 1;
+    END
+
+    INSERT INTO Comentarios (tarea_id, usuario_id, comentario)
+    VALUES (@id_tarea, @id_usuario, @comentario);
+
+    SELECT 
+        c.*,
+        u.nombre as usuario_nombre
+    FROM Comentarios c
+    INNER JOIN Usuarios u ON u.id = c.usuario_id
+    WHERE c.id = SCOPE_IDENTITY();
+END;
+GO
+
+
+---<<> Prodedimientos almacernados controlados<><>---
+
+
+
 
 -- Procedimiento para obtener todos los usuarios
 DROP PROCEDURE IF EXISTS ObtenerUsuarios;
@@ -596,115 +1167,7 @@ BEGIN
 END;
 GO
 
--- Procedimiento para obtener todos los equipos
-DROP PROCEDURE IF EXISTS ObtenerEquipos;
-GO
-CREATE PROCEDURE ObtenerEquipos
-AS
-BEGIN
-    SELECT * FROM Equipos;
-END;
-GO
 
--- Procedimiento para eliminar un equipo
-DROP PROCEDURE IF EXISTS EliminarEquipo;
-GO
-CREATE PROCEDURE EliminarEquipo
-    @id_equipo INT
-AS
-BEGIN
-    IF EXISTS (SELECT 1 FROM Equipos WHERE id = @id_equipo)
-    BEGIN
-        DELETE FROM Equipos WHERE id = @id_equipo;
-    END;
-END;
-GO
-
-
-DROP PROCEDURE IF EXISTS CrearProyecto;
-GO
-CREATE PROCEDURE CrearProyecto
-    @nombre_proyecto NVARCHAR(100),
-    @descripcion NVARCHAR(255),
-    @fecha_fin DATETIME,
-    @id_usuario INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Insertar en Proyectos
-    INSERT INTO Proyectos (nombre_proyecto, descripcion, fecha_inicio, fecha_fin)
-    VALUES (@nombre_proyecto, @descripcion, GETDATE(), @fecha_fin);
-
-    -- Obtener el ID recién creado
-    DECLARE @id_proyecto INT;
-    SET @id_proyecto = SCOPE_IDENTITY();
-
-    -- Insertar en Proyectos_Usuarios la relación
-    INSERT INTO Proyectos_Usuarios (proyecto_id, usuario_id)
-    VALUES (@id_proyecto, @id_usuario);
-
-    -- Devolver el ID del proyecto
-    SELECT @id_proyecto AS id_proyecto;
-END;
-GO
-
-
-
--- Eliminar el procedimiento si ya existe
-DROP PROCEDURE IF EXISTS InsertarProyectoUsuario;
-GO
-
--- Crear el procedimiento almacenado
-CREATE PROCEDURE InsertarProyectoUsuario
-    @proyecto_id INT,
-    @usuario_id INT
-AS
-BEGIN
-    -- Insertar un nuevo registro en la tabla Proyectos_Usuarios
-    INSERT INTO Proyectos_Usuarios (proyecto_id, usuario_id)
-    VALUES (@proyecto_id, @usuario_id);
-END;
-GO
-
-
-
--- Procedimiento para obtener todos los proyectos
-DROP PROCEDURE IF EXISTS ObtenerProyectos;
-GO
-CREATE PROCEDURE ObtenerProyectos
-AS
-BEGIN
-    SELECT * FROM Proyectos;
-END;
-GO
-
--- Procedimiento para obtener un proyecto por ID
-DROP PROCEDURE IF EXISTS ObtenerProyectoPorId;
-GO
-CREATE PROCEDURE ObtenerProyectoPorId
-    @id_proyecto INT
-AS
-BEGIN
-    SELECT *
-    FROM Proyectos
-    WHERE id = @id_proyecto;
-END;
-GO
-
--- Procedimiento para eliminar un proyecto
-DROP PROCEDURE IF EXISTS EliminarProyecto;
-GO
-CREATE PROCEDURE EliminarProyecto
-    @id_proyecto INT
-AS
-BEGIN
-    IF EXISTS (SELECT 1 FROM Proyectos WHERE id = @id_proyecto)
-    BEGIN
-        DELETE FROM Proyectos WHERE id = @id_proyecto;
-    END;
-END;
-GO
 
 -- Procedimiento para insertar una tarea
 DROP PROCEDURE IF EXISTS InsertarTarea;
@@ -719,16 +1182,6 @@ AS
 BEGIN
     INSERT INTO Tareas (proyecto_id, nombre_tarea, descripcion, fecha_creacion, fecha_limite, estado_id)
     VALUES (@proyecto_id, @titulo, @descripcion, GETDATE(), @fecha_limite, @estado_id);
-END;
-GO
-
--- Procedimiento para obtener todas las tareas
-DROP PROCEDURE IF EXISTS ObtenerTareas;
-GO
-CREATE PROCEDURE ObtenerTareas
-AS
-BEGIN
-    SELECT * FROM Tareas;
 END;
 GO
 
@@ -844,41 +1297,7 @@ BEGIN
 END;
 GO
 
--- Procedimiento para obtener un usuario por ID
-DROP PROCEDURE IF EXISTS ObtenerUsuarioPorId;
-GO
-CREATE PROCEDURE ObtenerUsuarioPorId
-    @id INT
-AS
-BEGIN
-    SELECT id, nombre, correo, fecha_registro
-    FROM Usuarios
-    WHERE id = @id;
-END;
-GO
 
-
--- Procedimiento para actualizar un usuario
-DROP PROCEDURE IF EXISTS ActualizarUsuario;
-GO
-CREATE PROCEDURE ActualizarUsuario
-    @id INT,
-    @nombre NVARCHAR(255),
-    @imagen_perfil NVARCHAR(255) = NULL, -- Optional
-    @numero_telefono NVARCHAR(20) = NULL, -- Optional
-    @fecha_nacimiento DATE = NULL -- Optional
-AS
-BEGIN
-    UPDATE Usuarios
-    SET nombre = @nombre,
-        imagen_perfil = @imagen_perfil,
-        numero_telefono = @numero_telefono,
-        fecha_nacimiento = @fecha_nacimiento
-    WHERE id = @id;
-    
-    SELECT * FROM Usuarios WHERE id = @id;
-END;
-GO
 
 -- Procedimiento para obtener roles de un usuario
 DROP PROCEDURE IF EXISTS ObtenerRolesDeUsuario;

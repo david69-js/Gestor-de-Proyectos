@@ -36,6 +36,7 @@ async function registerUser(userData) {
     let rol = 1; // Por defecto si no hay token
 
     // Si viene token de invitación, lo descifra y actualiza las variables
+   
     if (token) {
       try {
         const invitacion = jwt.verify(token, process.env.JWT_SECRET);
@@ -57,6 +58,8 @@ async function registerUser(userData) {
     }
 
     const id_rol = rolResult.recordset[0].id;
+
+    console.log('Rol ID:', id_rol);  // Agrega esta línea para depuració
 
     // Llamar al procedimiento almacenado para registrar usuario
     const result = await pool.request()
@@ -125,7 +128,9 @@ async function loginUser(userData) {
 
         const token = jwt.sign(
             { 
-                id: userDetails.id
+                id: userDetails.id,
+                id_organizacion: userDetails.id_organizacion,
+                rol: userDetails.nombre_rol
             },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
