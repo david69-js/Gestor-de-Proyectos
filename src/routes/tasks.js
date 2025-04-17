@@ -84,12 +84,12 @@ router.delete('/project/:projectId/tareas/:tareaId', async (req, res) => {
 });
 
 // Assign user to task
-router.post('/project/:projectId/tareas/:tareaId/usuarios/:userId', async (req, res) => {
+router.post('/project/:projectId/tareas/:tareaId/usuario/:userId', async (req, res) => {
     try {
-        const {id_organizacion, id} = req.user;
+        const {id_organizacion } = req.user;
         const {tareaId, userId, projectId} = req.params;
         
-        const result = await tasksController.assignTaskToUser(tareaId, userId, projectId, id_organizacion, id);
+        const result = await tasksController.assignTaskToUser(tareaId, userId, projectId, id_organizacion);
         res.status(201).json(result);
     } catch (error) {
         console.error('Error assigning user to task:', error);
@@ -97,6 +97,24 @@ router.post('/project/:projectId/tareas/:tareaId/usuarios/:userId', async (req, 
             res.status(401).json({ error: error.message });
         } else {
             res.status(500).json({ error: 'Error assigning user to task' });
+        }
+    }
+});
+
+// Unassign user from task
+router.delete('/project/:projectId/tareas/:tareaId/usuario/:userId', async (req, res) => {
+    try {
+        const {id_organizacion} = req.user;
+        const {tareaId, userId, projectId} = req.params;
+        
+        const result = await tasksController.unassignTaskFromUser(tareaId, userId, projectId, id_organizacion);
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('Error unassigning user from task:', error);
+        if (error.message === 'Credenciales inválidas o expiradas') {
+            res.status(401).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: 'Error unassigning user from task' });
         }
     }
 });
@@ -118,5 +136,7 @@ router.post('/project/:projectId/tareas/:tareaId/comentarios', async (req, res) 
         }
     }
 });
+
+
 
 module.exports = router;

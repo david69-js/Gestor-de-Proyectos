@@ -1020,18 +1020,65 @@ BEGIN
         THROW 50003, 'El usuario ya está asignado a esta tarea.', 1;
     END
 
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Organizaciones 
+        WHERE id_usuario = @id_usuario AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50003, 'El usuario no pertenece a la organizacion.', 1;
+    END
+
     INSERT INTO Usuarios_Tareas (usuario_id, tarea_id)
     VALUES (@id_usuario, @id_tarea);
 
     SELECT 
-        u.id as usuario_id,
+        u.id as id_usuario,
         u.nombre as usuario_nombre,
         t.id as tarea_id,
         t.nombre_tarea
-    FROM Usuarios_Tareas ut
-    INNER JOIN Usuarios u ON u.id = ut.usuario_id
-    INNER JOIN Tareas t ON t.id = ut.tarea_id
-    WHERE ut.usuario_id = @id_usuario AND ut.tarea_id = @id_tarea;
+        FROM Usuarios_Tareas ut
+        INNER JOIN Usuarios u ON u.id = ut.usuario_id
+        INNER JOIN Tareas t ON t.id = ut.tarea_id
+        WHERE ut.usuario_id = @id_usuario AND ut.tarea_id = @id_tarea;
+END;
+GO
+
+DROP PROCEDURE IF EXISTS sp_DesasignarUsuarioTarea;
+GO
+CREATE PROCEDURE sp_DesasignarUsuarioTarea
+    @id_tarea INT,
+    @id_usuario INT,
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate project belongs to organization
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Validate task belongs to project
+    IF NOT EXISTS (SELECT 1 FROM Tareas 
+        WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    BEGIN
+        THROW 50002, 'La tarea no existe o no pertenece al proyecto.', 1;
+    END
+
+    -- Validate user is assigned to task
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Tareas 
+        WHERE usuario_id = @id_usuario AND tarea_id = @id_tarea)
+    BEGIN
+        THROW 50003, 'El usuario no está asignado a esta tarea.', 1;
+    END
+
+    -- Remove user from task
+    DELETE FROM Usuarios_Tareas
+    WHERE usuario_id = @id_usuario AND tarea_id = @id_tarea;
+
+    -- Return confirmation
+    SELECT 'Usuario desasignado exitosamente de la tarea' AS message;
 END;
 GO
 

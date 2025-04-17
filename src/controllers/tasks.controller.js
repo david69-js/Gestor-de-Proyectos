@@ -132,7 +132,24 @@ async function deleteTaskByProjectOrg(id_tarea, id_project, id_organizacion, id_
     }
 }
 
-async function assignTaskToUser(id_tarea, id_usuario, id_project, id_organizacion, id_creator) {
+async function assignTaskToUser(id_tarea, id_usuario, id_project, id_organizacion) {
+    console.log('Tarea:',id_tarea, 'usuarioID:', id_usuario, 'ProyectID', id_project, 'Organizacion:',id_organizacion);
+    const pool = await getConnection();
+    try {
+        const result = await pool.request()
+             .input('id_tarea', id_tarea)
+             .input('id_usuario', id_usuario)
+             .input('id_proyecto', id_project)
+             .input('id_organizacion', id_organizacion)
+             .execute('sp_AsignarUsuarioATarea');
+        return result.recordset;
+    } catch (error) {
+        console.error('Error assigning user to task:', error);
+        throw error;
+    }
+}
+
+async function unassignTaskFromUser(id_tarea, id_usuario, id_project, id_organizacion) {
     const pool = await getConnection();
     try {
         const result = await pool.request()
@@ -140,11 +157,11 @@ async function assignTaskToUser(id_tarea, id_usuario, id_project, id_organizacio
             .input('id_usuario', id_usuario)
             .input('id_proyecto', id_project)
             .input('id_organizacion', id_organizacion)
-            .execute('sp_AsignarUsuarioATarea');
+            .execute('sp_DesasignarUsuarioTarea');
 
         return result.recordset[0];
     } catch (error) {
-        console.error('Error assigning user to task:', error);
+        console.error('Error unassigning user from task:', error);
         throw error;
     }
 }
@@ -167,6 +184,7 @@ async function addComment(comentario, id_tarea, id_project, id_organizacion, id_
     }
 }
 
+
 module.exports = {
     getAllTasksByOrganizacion,
     getTaskById,
@@ -174,5 +192,6 @@ module.exports = {
     updateTaskByProjectOrg,
     deleteTaskByProjectOrg,
     assignTaskToUser,
-    addComment
+    addComment,
+    unassignTaskFromUser  // Add the new function to exports
 };
