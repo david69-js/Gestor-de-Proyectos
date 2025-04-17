@@ -89,7 +89,7 @@ async function updateUserDetails(userId, userDetails) {
             .input('imagen_perfil', imagen_perfil || null)
             .input('numero_telefono', numero_telefono || null)
             .input('fecha_nacimiento', fecha_nacimiento || null)
-            .execute('ActualizarUsuario');
+            .execute('sp_ActualizarUsuario');
 
         console.log('User details updated successfully');
     } catch (error) {

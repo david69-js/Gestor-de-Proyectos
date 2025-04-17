@@ -719,28 +719,35 @@ GO
 DROP PROCEDURE IF EXISTS sp_EliminarParticipante;
 GO
 CREATE PROCEDURE sp_EliminarParticipante
-    @proyecto_id INT,
-    @usuario_id INT
+    @id_proyecto INT,
+    @id_usuario INT,
+    @id_organizacion INT
 AS
 BEGIN
     SET NOCOUNT ON;
 
     -- Check if relation exists
+
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+                  WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El usuario no está asignado a este proyecto.', 1;
+    END
+
     IF NOT EXISTS (SELECT 1 FROM Usuarios_Proyectos 
-                  WHERE id_usuario = @usuario_id AND id_proyecto = @proyecto_id)
+                  WHERE id_usuario = @id_usuario AND id_proyecto = @id_proyecto)
     BEGIN
         THROW 50001, 'El usuario no está asignado a este proyecto.', 1;
     END
 
     -- Remove participant
     DELETE FROM Usuarios_Proyectos 
-    WHERE id_usuario = @usuario_id AND id_proyecto = @proyecto_id;
+    WHERE id_usuario = @id_usuario AND id_proyecto = @id_proyecto;
 
     -- Return success message
     SELECT 'Participante eliminado exitosamente' as message;
 END;
 GO
-
 
 
 

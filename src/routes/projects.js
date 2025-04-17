@@ -77,10 +77,11 @@ router.post('/:id/participants/:user', async (req, res) => {
 });
 
 // Remove participant from project
-router.delete('/:id/participants/:userId', async (req, res) => {
+router.delete('/:id/participants/:user', async (req, res) => {
     try {
-        const { id, userId } = req.params;
-        const result = await projectsController.removeParticipant(id, userId, req.user);
+        const userId  = req.params.user;
+        const projectId = req.params.id;
+        const result = await projectsController.removeParticipant(projectId, userId, req.user);
         res.json(result);
     } catch (error) {
         console.error('Error removing participant:', error);

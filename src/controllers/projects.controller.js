@@ -143,12 +143,12 @@ async function addParticipant(projectId, userId, token) {
     }
 }
 
-async function removeParticipant(projectId, userId) {
+async function removeParticipant(projectId, userId, token) {
     try {
         const id_organizacion = token.id_organizacion;
         const pool = await getConnection();
         const result = await pool.request()
-            .input('proyecto_id', projectId)
+            .input('id_proyecto', projectId)
             .input('id_usuario', userId)
             .input('id_organizacion', id_organizacion)
             .execute('sp_EliminarParticipante');
