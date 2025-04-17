@@ -914,6 +914,162 @@ BEGIN
 END;
 GO
 
+DROP PROCEDURE IF EXISTS sp_ActualizarTarea;
+GO
+CREATE PROCEDURE sp_ActualizarTarea
+    @id_tarea INT,
+    @id_proyecto INT,
+    @id_organizacion INT,
+    @nombre_tarea NVARCHAR(255),
+    @descripcion NVARCHAR(MAX),
+    @fecha_limite DATETIME,
+    @estado_id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Tareas WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    BEGIN
+        THROW 50002, 'La tarea no existe o no pertenece al proyecto.', 1;
+    END
+
+    UPDATE Tareas
+    SET nombre_tarea = @nombre_tarea,
+        descripcion = @descripcion,
+        fecha_limite = @fecha_limite,
+        estado_id = @estado_id
+    WHERE id = @id_tarea;
+    
+    SELECT t.*, p.nombre_proyecto
+    FROM Tareas t
+    INNER JOIN Proyectos p ON p.id = t.proyecto_id
+    WHERE t.id = @id_tarea;
+END;
+GO
+
+-- Delete task procedure
+DROP PROCEDURE IF EXISTS sp_EliminarTarea;
+GO
+CREATE PROCEDURE sp_EliminarTarea
+    @id_tarea INT,
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validación: proyecto existe y pertenece a la organización
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+                   WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Validación: tarea existe y pertenece al proyecto
+    IF NOT EXISTS (SELECT 1 FROM Tareas 
+                   WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    BEGIN
+        THROW 50002, 'La tarea no existe o no pertenece al proyecto.', 1;
+    END
+
+    -- Eliminar asignaciones de usuarios a la tarea
+    DELETE FROM Usuarios_Tareas WHERE tarea_id = @id_tarea;
+
+    -- Eliminar la tarea
+    DELETE FROM Tareas WHERE id = @id_tarea;
+
+    -- Confirmación
+    SELECT 'Tarea eliminada exitosamente' AS message;
+END;
+GO
+
+
+-- Assign user to task procedure
+DROP PROCEDURE IF EXISTS sp_AsignarUsuarioATarea;
+GO
+CREATE PROCEDURE sp_AsignarUsuarioATarea
+    @id_tarea INT,
+    @id_usuario INT,
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Proyectos 
+        WHERE id_usuario = @id_usuario AND id_proyecto = @id_proyecto)
+    BEGIN
+        THROW 50002, 'El usuario no pertenece al proyecto.', 1;
+    END
+
+    IF EXISTS (SELECT 1 FROM Usuarios_Tareas 
+        WHERE usuario_id = @id_usuario AND tarea_id = @id_tarea)
+    BEGIN
+        THROW 50003, 'El usuario ya está asignado a esta tarea.', 1;
+    END
+
+    INSERT INTO Usuarios_Tareas (usuario_id, tarea_id)
+    VALUES (@id_usuario, @id_tarea);
+
+    SELECT 
+        u.id as usuario_id,
+        u.nombre as usuario_nombre,
+        t.id as tarea_id,
+        t.nombre_tarea
+    FROM Usuarios_Tareas ut
+    INNER JOIN Usuarios u ON u.id = ut.usuario_id
+    INNER JOIN Tareas t ON t.id = ut.tarea_id
+    WHERE ut.usuario_id = @id_usuario AND ut.tarea_id = @id_tarea;
+END;
+GO
+
+-- Add comment to task procedure
+DROP PROCEDURE IF EXISTS sp_AgregarComentario;
+GO
+CREATE PROCEDURE sp_AgregarComentario
+    @id_tarea INT,
+    @id_usuario INT,
+    @id_proyecto INT,
+    @id_organizacion INT,
+    @comentario NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    IF NOT EXISTS (SELECT 1 FROM Tareas WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    BEGIN
+        THROW 50002, 'La tarea no existe o no pertenece al proyecto.', 1;
+    END
+
+    INSERT INTO Comentarios (tarea_id, usuario_id, comentario)
+    VALUES (@id_tarea, @id_usuario, @comentario);
+
+    SELECT 
+        c.*,
+        u.nombre as usuario_nombre
+    FROM Comentarios c
+    INNER JOIN Usuarios u ON u.id = c.usuario_id
+    WHERE c.id = SCOPE_IDENTITY();
+END;
+GO
 
 
 ---<<> Prodedimientos almacernados controlados<><>---
