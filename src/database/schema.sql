@@ -750,6 +750,39 @@ END;
 GO
 
 
+DROP PROCEDURE IF EXISTS sp_ObtenerUsuariosPorProyecto;
+GO
+CREATE PROCEDURE sp_ObtenerUsuariosPorProyecto
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check if relation exists
+
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no es parte de la organizacion.', 1;
+    END
+
+    SELECT 
+        u.id AS usuario_id,
+        u.nombre AS usuario_nombre,
+        p.id AS proyecto_id,
+        p.nombre_proyecto
+    FROM Usuarios_Proyectos up
+    INNER JOIN Usuarios u ON u.id = up.id_usuario
+    INNER JOIN Proyectos p ON p.id = up.id_proyecto
+    INNER JOIN Usuarios_Organizaciones uo ON uo.id_usuario = u.id
+    WHERE p.id = @id_proyecto;
+
+    -- Return success message
+    SELECT 'Usuarios disponibles' as message;
+END;
+GO
+
 
 
 

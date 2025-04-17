@@ -159,6 +159,40 @@ async function removeParticipant(projectId, userId, token) {
     }
 }
 
+async function getUsersByProject(projectId, token) {
+    try {
+        const id_organizacion = token.id_organizacion;
+        const pool = await getConnection();
+        const result = await pool.request()
+            .input('id_proyecto', projectId)
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_ObtenerUsuariosPorProyecto');
+        return result.recordset;
+    } catch (error) {
+        console.error('Error removing participant:', error);
+        throw error;
+    }
+}
+
+
+async function getTasksByProject(projectId, token) {
+    try {
+        const id_organizacion = token.id_organizacion;
+        const pool = await getConnection();
+        const result = await pool.request()
+            .input('id_proyecto', projectId)
+            .input('id_usuario', userId)
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_EliminarParticipante');
+        return result.recordset[0];
+    } catch (error) {
+        console.error('Error removing participant:', error);
+        throw error;
+    }
+}
+
+
+
 module.exports = {
     getAllProjects,
     getProjectById,
@@ -166,5 +200,6 @@ module.exports = {
     updateProject,
     deleteProject,
     addParticipant,
-    removeParticipant
+    removeParticipant,
+    getUsersByProject
 };

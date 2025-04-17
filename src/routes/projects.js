@@ -89,4 +89,29 @@ router.delete('/:id/participants/:user', async (req, res) => {
     }
 });
 
+// Add participant to project
+router.get('/:id/project-participants', async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        const result = await projectsController.getUsersByProject(projectId, req.user);
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Error adding participant:', error);
+        res.status(500).json({ error: 'Error adding participant to project' });
+    }
+});
+
+// Remove participant from project
+router.get('/:id/project-tasks', async (req, res) => {
+    try {
+        const userId  = req.params.user;
+        const projectId = req.params.id;
+        const result = await projectsController.addParticipant(projectId, userId, req.user);
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('Error adding participant:', error);
+        res.status(500).json({ error: 'Error adding participant to project' });
+    }
+});
+
 module.exports = router;
