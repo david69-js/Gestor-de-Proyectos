@@ -1,12 +1,13 @@
 const { getConnection } = require('../config/db');
 const bcrypt = require('bcryptjs');
 
-async function getUserById(id) {
+async function getUserById(id, id_organizacion) {
     try {
         const pool = await getConnection();
         const result = await pool.request()
-            .input('id', id)
-            .execute('ObtenerUsuarioPorId');
+            .input('id_usuario', id)
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_ObtenerUsuarioPorId');
         
         if (result.recordset.length > 0) {
             return result.recordset[0];
@@ -64,7 +65,7 @@ async function deleteUser(userId) {
         // Eliminar el usuario
         const result = await pool.request()
             .input('id_usuario', userId)
-            .execute('EliminarUsuario');
+            .execute('sp_EliminarUsuario');
 
         if (result.rowsAffected[0] > 0) {
             return { message: 'User and related records deleted successfully' };
@@ -89,7 +90,7 @@ async function updateUserDetails(userId, userDetails) {
             .input('imagen_perfil', imagen_perfil || null)
             .input('numero_telefono', numero_telefono || null)
             .input('fecha_nacimiento', fecha_nacimiento || null)
-            .execute('ActualizarUsuario');
+            .execute('sp_ActualizarUsuario');
 
         console.log('User details updated successfully');
     } catch (error) {

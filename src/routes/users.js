@@ -11,7 +11,8 @@ const {
 // Get user by ID
 router.get('/:id', async (req, res) => {
     try {
-        const user = await getUserById(req.params.id);
+        const id_organizacion = req.user.id_organizacion;
+        const user = await getUserById(req.params.id, id_organizacion);
         res.json(user);
     } catch (error) {
         console.error('Error getting user:', error);
