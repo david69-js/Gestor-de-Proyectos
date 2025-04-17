@@ -1,12 +1,13 @@
 const { getConnection } = require('../config/db');
 const bcrypt = require('bcryptjs');
 
-async function getUserById(id) {
+async function getUserById(id, id_organizacion) {
     try {
         const pool = await getConnection();
         const result = await pool.request()
-            .input('id', id)
-            .execute('ObtenerUsuarioPorId');
+            .input('id_usuario', id)
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_ObtenerUsuarioPorId');
         
         if (result.recordset.length > 0) {
             return result.recordset[0];

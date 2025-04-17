@@ -102,10 +102,10 @@ BEGIN
     );
 END;
 
--- Crear la tabla Eventos_Calendar solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Eventos_Calendar' AND xtype = 'U')
+-- Crear la tabla Eventos solo si no existe <AUNPOR_REVISAR>
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Eventos' AND xtype = 'U')
 BEGIN
-    CREATE TABLE Eventos_Calendar (
+    CREATE TABLE Eventos (
         id INT PRIMARY KEY IDENTITY(1,1),
         nombre_evento VARCHAR(255),
         descripcion VARCHAR(MAX),
@@ -114,15 +114,6 @@ BEGIN
     );
 END
 
-
--- Crear la tabla Etiquetas solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Etiquetas' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Etiquetas (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        nombre_etiqueta VARCHAR(50)
-    );
-END;
 
 -- Crear la tabla Usuarios_Tareas solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Tareas' AND xtype = 'U')
@@ -135,17 +126,6 @@ BEGIN
     );
 END
 
--- Crear la tabla Etiquetas_Tareas solo si no existe
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Etiquetas_Tareas' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Etiquetas_Tareas (
-        tarea_id INT NOT NULL,
-        etiqueta_id INT NOT NULL,
-        PRIMARY KEY (tarea_id, etiqueta_id),
-        FOREIGN KEY (tarea_id) REFERENCES Tareas(id) ON DELETE CASCADE,
-        FOREIGN KEY (etiqueta_id) REFERENCES Etiquetas(id) ON DELETE CASCADE
-    );
-END;
 
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Invitaciones' AND xtype = 'U')
 BEGIN
@@ -498,6 +478,24 @@ BEGIN
 END;
 GO
 
+-- Procedimiento para obtener un usuario por ID
+DROP PROCEDURE IF EXISTS sp_ObtenerUsuarioPorId;
+GO
+CREATE PROCEDURE sp_ObtenerUsuarioPorId
+    @id_usuario INT,
+    @id_organizacion INT
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Organizaciones WHERE id_usuario = @id_usuario AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El usuario no pertenece a la organizacion', 1;
+    END
+
+    SELECT *
+    FROM Usuarios
+    WHERE id = @id_usuario;
+END;
+GO
 
 -- Procedimiento para eliminar un usuario
 DROP PROCEDURE IF EXISTS sp_EliminarUsuario;
@@ -991,18 +989,6 @@ BEGIN
 END;
 GO
 
--- Procedimiento para obtener un usuario por ID
-DROP PROCEDURE IF EXISTS ObtenerUsuarioPorId;
-GO
-CREATE PROCEDURE ObtenerUsuarioPorId
-    @id INT
-AS
-BEGIN
-    SELECT id, nombre, correo, fecha_registro
-    FROM Usuarios
-    WHERE id = @id;
-END;
-GO
 
 
 -- Procedimiento para obtener roles de un usuario
