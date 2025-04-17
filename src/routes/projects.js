@@ -64,9 +64,9 @@ router.delete('/:id', async (req, res) => {
 });
 
 // Add participant to project
-router.post('/:id/participants', async (req, res) => {
+router.post('/:id/participants/:user', async (req, res) => {
     try {
-        const { userId } = req.body;
+        const userId  = req.params.user;
         const projectId = req.params.id;
         const result = await projectsController.addParticipant(projectId, userId, req.user);
         res.status(201).json(result);

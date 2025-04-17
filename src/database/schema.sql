@@ -652,45 +652,68 @@ DROP PROCEDURE IF EXISTS sp_AgregarParticipante;
 GO
 CREATE PROCEDURE sp_AgregarParticipante
     @proyecto_id INT,
-    @usuario_id INT
+    @id_usuario INT,
+    @id_organizacion INT,
+    @rol NVARCHAR(50)
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Check if project exists
-    IF NOT EXISTS (SELECT 1 FROM Proyectos WHERE id = @proyecto_id)
+    -- Validar si es admin o colaborador
+    IF (@rol = 'admin' OR @rol = 'colaborador')
     BEGIN
-        THROW 50001, 'El proyecto no existe.', 1;
-    END
+        -- Verificar que el rol exista en la tabla Roles
+        IF NOT EXISTS (SELECT 1 FROM Roles WHERE nombre_rol = @rol)
+        BEGIN
+            THROW 50001, 'El rol especificado no es válido.', 1;
+        END
 
-    -- Check if user exists
-    IF NOT EXISTS (SELECT 1 FROM Usuarios WHERE id = @usuario_id)
+        -- Validar si el proyecto existe
+        IF NOT EXISTS (SELECT 1 FROM Proyectos WHERE id = @proyecto_id AND id_organizacion = @id_organizacion)
+        BEGIN
+            THROW 50001, 'El proyecto no existe.', 1;
+        END
+
+        -- Validar si el usuario existe
+        IF NOT EXISTS (SELECT 1 FROM Usuarios WHERE id = @id_usuario)
+        BEGIN
+            THROW 50002, 'El usuario no existe.', 1;
+        END
+
+        -- Validar si ya existe la relación
+        IF EXISTS (SELECT 1 FROM Usuarios_Proyectos WHERE id_usuario = @id_usuario AND id_proyecto = @proyecto_id)
+        BEGIN
+            THROW 50003, 'El usuario ya está asignado a este proyecto.', 1;
+        END
+
+        IF NOT EXISTS (SELECT 1 FROM Usuarios_Organizaciones WHERE id_usuario = @id_usuario AND id_organizacion = @id_organizacion)
+        BEGIN
+            THROW 50003, 'El usuario no pertece a la organizacion.', 1;
+        END
+
+        -- Insertar relación
+        INSERT INTO Usuarios_Proyectos (id_usuario, id_proyecto)
+        VALUES (@id_usuario, @proyecto_id);
+
+        -- Retornar la relación creada
+        SELECT 
+            u.id AS usuario_id,
+            u.nombre AS usuario_nombre,
+            p.id AS proyecto_id,
+            p.nombre_proyecto
+        FROM Usuarios_Proyectos up
+        JOIN Usuarios u ON u.id = up.id_usuario
+        JOIN Proyectos p ON p.id = up.id_proyecto
+        WHERE up.id_usuario = @id_usuario AND up.id_proyecto = @proyecto_id;
+    END
+    ELSE
     BEGIN
-        THROW 50002, 'El usuario no existe.', 1;
+        -- Si no es admin ni colaborador, lanza error
+        THROW 50004, 'Solo administradores o colaboradores pueden ser asignados.', 1;
     END
-
-    -- Check if relation already exists
-    IF EXISTS (SELECT 1 FROM Usuarios_Proyectos WHERE id_usuario = @usuario_id AND id_proyecto = @proyecto_id)
-    BEGIN
-        THROW 50003, 'El usuario ya está asignado a este proyecto.', 1;
-    END
-
-    -- Add participant
-    INSERT INTO Usuarios_Proyectos (id_usuario, id_proyecto)
-    VALUES (@usuario_id, @proyecto_id);
-
-    -- Return the new relation
-    SELECT 
-        u.id as usuario_id,
-        u.nombre as usuario_nombre,
-        p.id as proyecto_id,
-        p.nombre_proyecto
-    FROM Usuarios_Proyectos up
-    JOIN Usuarios u ON u.id = up.id_usuario
-    JOIN Proyectos p ON p.id = up.id_proyecto
-    WHERE up.id_usuario = @usuario_id AND up.id_proyecto = @proyecto_id;
 END;
 GO
+
 
 -- Procedure to remove participant
 DROP PROCEDURE IF EXISTS sp_EliminarParticipante;

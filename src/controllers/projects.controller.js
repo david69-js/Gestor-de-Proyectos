@@ -128,12 +128,13 @@ async function deleteProject(id, token) {
 async function addParticipant(projectId, userId, token) {
     try {
         const id_organizacion = token.id_organizacion;
-
+        const rol = token.rol;
         const pool = await getConnection();
         const result = await pool.request()
             .input('proyecto_id', projectId)
-            .input('usuario_id', userId)
+            .input('id_usuario', userId)
             .input('id_organizacion', id_organizacion)
+            .input('rol', rol)
             .execute('sp_AgregarParticipante');
         return result.recordset[0];
     } catch (error) {
@@ -148,7 +149,7 @@ async function removeParticipant(projectId, userId) {
         const pool = await getConnection();
         const result = await pool.request()
             .input('proyecto_id', projectId)
-            .input('usuario_id', userId)
+            .input('id_usuario', userId)
             .input('id_organizacion', id_organizacion)
             .execute('sp_EliminarParticipante');
         return result.recordset[0];
