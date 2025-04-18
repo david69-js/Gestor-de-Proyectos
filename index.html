@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Subir Imagen con Token</title>
+</head>
+<body>
+    <h2>Subir Imagen con Autenticación</h2>
+    <form id="uploadForm">
+        <label>Nombre:</label>
+        <input type="text" name="nombre" value="David Tester" required>
+        <br><br>
+
+        <label>Seleccionar Imagen:</label>
+        <input type="file" name="imagen_perfil" accept="image/*" required>
+        <br><br>
+
+        <button type="submit">Subir Imagen</button>
+    </form>
+
+    <div id="response"></div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const responseDiv = document.getElementById('response');
+
+        form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(form);
+
+    try {
+        const res = await fetch('http://localhost:3000/api/users/update-user', {
+            method: 'PUT',
+            headers: {
+                'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWRfb3JnYW5pemFjaW9uIjoyLCJyb2wiOiJhZG1pbiIsImlhdCI6MTc0NDkzMDU3NywiZXhwIjoxNzQ1MDE2OTc3fQ.bLwbqhTIIksO23hQNQQMWjOv0dsyno5z9fc0KwnrKSA'
+            },
+            body: formData
+        });
+
+        // Verificar si la respuesta fue exitosa
+        if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
+        // Intentar obtener el JSON solo si la respuesta es válida
+        const data = await res.json();
+        console.log(data);
+        responseDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+    } catch (error) {
+        console.error('Error:', error);
+        responseDiv.innerHTML = `<p style="color:red;">Error al enviar la imagen. ${error.message}</p>`;
+    }
+});
+
+    </script>
+</body>
+</html>

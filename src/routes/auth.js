@@ -7,10 +7,16 @@ const {
     registerUser,
     loginUser
 } = require('../controllers/auth.controller.js');
+const upload = require('../config/uploadConfig');
 
 // Register new user - Update the stored procedure execution
-router.post('/register', async (req, res) => {
+router.post('/register',upload.single('imagen_perfil'),async (req, res) => {
     try {
+        const imagen_perfil = req.file ? `/uploads/${req.file.filename}` : null;
+
+        // Agregar imagen a req.body para la lógica de update
+        req.body.imagen_perfil = imagen_perfil;
+
         const user = await registerUser(req.body);
         res.status(201).json(user);
     } catch (error) {

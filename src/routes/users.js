@@ -6,6 +6,7 @@ const {
     changePassword,
     updateUserDetails
 } = require('../controllers/users.controller.js');
+const upload = require('../config/uploadConfig');
 
 
 // Get user by ID
@@ -31,12 +32,18 @@ router.post('/change-password', async (req, res) => {
     }
 });
 
-router.put('/update-user', async (req, res) => {
+router.put('/update-user', upload.single('imagen_perfil') ,async (req, res) => {
     try {
+        const imagen_perfil = req.file ? `/uploads/${req.file.filename}` : null;
+
+        // Agregar imagen a req.body para la lógica de update
+        req.body.imagen_perfil = imagen_perfil;
+
+        // Asegúrate que req.user exista (por ejemplo con autenticación previa)
         const message = await updateUserDetails(req.user.id, req.body);
         res.json(message);
     } catch (error) {
-        console.error('Error changing password:', error);
+        console.error('Error changing user details:', error);
         res.status(401).json({ error: error.message });
     }
 });

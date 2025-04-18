@@ -80,6 +80,7 @@ async function deleteUser(userId) {
 
 async function updateUserDetails(userId, userDetails) {
     const { nombre ,imagen_perfil, numero_telefono, fecha_nacimiento } = userDetails;
+    console.log('Received user details:', userDetails);
     const pool = await getConnection();
 
     try {
