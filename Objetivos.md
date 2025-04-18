@@ -17,6 +17,7 @@
    -- Actualizacion de proyectos
    -- Eliminacion de proyectos
    -- Asignacion de proyectos a usuarios
+    -- Anuncios
 - Tareas
     -- Creacion de tareas
     -- Actualizacion de tareas
@@ -27,6 +28,5 @@
 
 
 # Objetivos por alcanzar
--- Anuncios
 -- Reportes
 -- Noficaciones
