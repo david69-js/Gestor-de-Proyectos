@@ -11,17 +11,22 @@
     -- Creacion de Organizaciones
     -- Actualizacion de informacion de usuario
     -- Eliminacion de usuario
-
-
-
-- Creacion de proyectos
-   -- Necesita un id de organizacion
-   -- Necesita un id de usuario 
+- Proyectos
+   -- Creacion de proyectos
+   -- Actualizacion de proyectos
+   -- Eliminacion de proyectos
+   -- Asignacion de proyectos a usuarios
+- Tareas
+    -- Creacion de tareas
+    -- Actualizacion de tareas
+    -- Eliminacion de tareas
+    -- Asignacion de tareas a usuarios
+    -- Desasignacion de tareas a usuarios
+    -- Comentarios
 
 
 # Objetivos por alcanzar
--- Tareas
--- Comentarios
--- Files
--- Calendario
+-- Imangen de perfil
+-- Anuncios
+-- Reportes
 -- Noficaciones

@@ -8,9 +8,16 @@ const {
     loginUser
 } = require('../controllers/auth.controller.js');
 
+
 // Register new user - Update the stored procedure execution
-router.post('/register', async (req, res) => {
+router.post('/register',async (req, res) => {
     try {
+        if (req.file) {
+            req.body.imagen_perfil = `/uploads/${req.file.filename}`;
+        } else {
+            req.body.imagen_perfil = null;
+        }
+
         const user = await registerUser(req.body);
         res.status(201).json(user);
     } catch (error) {
