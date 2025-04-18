@@ -8,10 +8,10 @@ const { verifyToken } = require('./middleware/auth');
 // Import routes
 const authRoutes = require('./routes/auth');
 const invitacionesRoutes = require('./routes/invtaciones'); // Corrected import
+const anunciosRoutes = require('./routes/anuncios');
 const usersRoutes = require('./routes/users');
 const projectsRoutes = require('./routes/projects');
 const tasksRoutes = require('./routes/tasks');
-const filesRoutes = require('./routes/files');
 const calendarRoutes = require('./routes/calendar');
 const notificationsRoutes = require('./routes/notifications');
 
@@ -22,8 +22,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Create uploads directory if it doesn't exist
+const uploadDir = path.join(__dirname, 'public/uploads');
+if (!require('fs').existsSync(uploadDir)){
+    require('fs').mkdirSync(uploadDir, { recursive: true });
+}
+
 // Static files directory for uploads
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(uploadDir));
 
 // Public routes
 app.use('/api/auth', authRoutes);
@@ -33,9 +39,9 @@ app.use('/api/invitaciones', verifyToken, invitacionesRoutes); // Corrected usag
 app.use('/api/users', verifyToken, usersRoutes);
 app.use('/api/projects',verifyToken, projectsRoutes);
 app.use('/api/tasks', verifyToken, tasksRoutes);
-app.use('/api/files', verifyToken, filesRoutes);
 app.use('/api/calendar', verifyToken, calendarRoutes);
 app.use('/api/notifications', verifyToken, notificationsRoutes);
+app.use('/api/anuncios', verifyToken, anunciosRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
