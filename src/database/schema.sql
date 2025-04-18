@@ -126,6 +126,33 @@ BEGIN
     );
 END
 
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Anuncios' AND xtype = 'U')
+BEGIN
+CREATE TABLE Anuncios (
+    id_anuncio INT PRIMARY KEY IDENTITY(1,1),
+    id_proyecto INT NOT NULL,
+    id_organizacion INT NOT NULL,
+    id_usuario INT NULL,  -- <-- ahora permite NULL
+    titulo NVARCHAR(255) NOT NULL,
+    descripcion NVARCHAR(MAX),
+    fecha_publicacion DATETIME DEFAULT GETDATE(),
+    fecha_creacion DATETIME DEFAULT GETDATE(),
+
+    CONSTRAINT FK_Anuncios_Proyectos FOREIGN KEY (id_proyecto) 
+        REFERENCES Proyectos(id) 
+        ON DELETE CASCADE,
+
+    CONSTRAINT FK_Anuncios_Organizaciones FOREIGN KEY (id_organizacion) 
+        REFERENCES Organizaciones(id) 
+        ON DELETE NO ACTION,
+
+    CONSTRAINT FK_Anuncios_Usuarios FOREIGN KEY (id_usuario) 
+        REFERENCES Usuarios(id) 
+        ON DELETE SET NULL
+);
+END
+
+
 
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Invitaciones' AND xtype = 'U')
 BEGIN
@@ -1119,86 +1146,202 @@ END;
 GO
 
 
+DROP PROCEDURE IF EXISTS sp_CrearAnuncio;
+GO
+CREATE PROCEDURE sp_CrearAnuncio
+    @id_proyecto INT,
+    @id_organizacion INT,
+    @id_usuario INT,
+    @titulo NVARCHAR(255),
+    @descripcion NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate project belongs to organization
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Insert announcement
+    INSERT INTO Anuncios (
+        id_proyecto,
+        id_organizacion,
+        id_usuario,
+        titulo,
+        descripcion
+    )
+    VALUES (
+        @id_proyecto,
+        @id_organizacion,
+        @id_usuario,
+        @titulo,
+        @descripcion
+    );
+
+    -- Return the created announcement
+    SELECT 
+        a.*,
+        p.nombre_proyecto,
+        u.nombre as nombre_usuario
+    FROM Anuncios a
+    INNER JOIN Proyectos p ON p.id = a.id_proyecto
+    LEFT JOIN Usuarios u ON u.id = a.id_usuario
+    WHERE a.id_anuncio = SCOPE_IDENTITY();
+END;
+GO
+
+
+DROP PROCEDURE IF EXISTS sp_ObtenerAnunciosPorProyecto;
+GO
+CREATE PROCEDURE sp_ObtenerAnunciosPorProyecto
+    @id_proyecto INT,
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate project belongs to organization
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Get all announcements for the project
+    SELECT 
+        a.*,
+        p.nombre_proyecto,
+        u.nombre as nombre_usuario
+    FROM Anuncios a
+    INNER JOIN Proyectos p ON p.id = a.id_proyecto
+    LEFT JOIN Usuarios u ON u.id = a.id_usuario
+    WHERE a.id_proyecto = @id_proyecto
+    ORDER BY a.fecha_publicacion DESC;
+END;
+GO
+
+DROP PROCEDURE IF EXISTS sp_ObtenerAnuncio;
+GO
+CREATE PROCEDURE sp_ObtenerAnuncio
+    @id_anuncio INT,
+    @id_organizacion INT,
+    @id_proyecto INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate announcement exists and belongs to organization
+    IF NOT EXISTS (SELECT 1 FROM Anuncios 
+        WHERE id_anuncio = @id_anuncio AND id_organizacion = @id_organizacion AND id_proyecto = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El anuncio no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Get the announcement with related information
+    SELECT 
+        a.*,
+        p.nombre_proyecto,
+        u.nombre as nombre_usuario
+    FROM Anuncios a
+    INNER JOIN Proyectos p ON p.id = a.id_proyecto
+    LEFT JOIN Usuarios u ON u.id = a.id_usuario
+    WHERE a.id_anuncio = @id_anuncio;
+END;
+GO
+
+
+DROP PROCEDURE IF EXISTS sp_ObtenerAnunciosPorProyecto;
+GO
+CREATE PROCEDURE sp_ObtenerAnunciosPorProyecto
+    @id_proyecto INT,
+    @id_organizacion INT,
+    @id_usuario INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate user belongs to organization
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Organizaciones 
+        WHERE id_usuario = @id_usuario AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El usuario no pertenece a la organización.', 1;
+    END
+
+    -- Validate project belongs to organization
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+        WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50002, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Get all announcements for the project
+    SELECT 
+        a.*,
+        p.nombre_proyecto,
+        u.nombre as nombre_usuario,
+        u.imagen_perfil as usuario_imagen
+    FROM Anuncios a
+    INNER JOIN Proyectos p ON p.id = a.id_proyecto
+    LEFT JOIN Usuarios u ON u.id = a.id_usuario
+    WHERE a.id_proyecto = @id_proyecto
+    ORDER BY a.fecha_publicacion DESC;
+END;
+GO
+
+
+
+DROP PROCEDURE IF EXISTS sp_EliminarAnuncio;
+GO
+CREATE PROCEDURE sp_EliminarAnuncio
+    @id_anuncio INT,
+    @id_organizacion INT,
+    @id_proyecto INT,
+    @id_usuario INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validate announcement exists and belongs to organization
+    IF NOT EXISTS (SELECT 1 FROM Anuncios 
+        WHERE id_anuncio = @id_anuncio AND id_organizacion = @id_organizacion AND id_proyecto = @id_proyecto)
+    BEGIN
+        THROW 50001, 'El anuncio no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Validate user either created the announcement or belongs to the organization
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM Anuncios a
+        WHERE a.id_anuncio = @id_anuncio 
+        AND (
+            a.id_usuario = @id_usuario -- User created the announcement
+            OR EXISTS (
+                SELECT 1 
+                FROM Usuarios_Organizaciones uo 
+                WHERE uo.id_usuario = @id_usuario 
+                AND uo.id_organizacion = @id_organizacion
+            )
+        )
+    )
+    BEGIN
+        THROW 50002, 'No tienes permisos para eliminar este anuncio.', 1;
+    END
+
+    -- Delete the announcement
+    DELETE FROM Anuncios 
+    WHERE id_anuncio = @id_anuncio;
+
+    -- Return success message
+    SELECT 'Anuncio eliminado exitosamente' AS message;
+END;
+GO
+
+
 ---<<> Prodedimientos almacernados controlados<><>---
 
-
-
-
--- Procedimiento para obtener todos los usuarios
-DROP PROCEDURE IF EXISTS ObtenerUsuarios;
-GO
-CREATE PROCEDURE ObtenerUsuarios
-AS
-BEGIN
-    SELECT * FROM Usuarios;
-END;
-GO
-
-
--- Procedimiento para insertar un rol
-DROP PROCEDURE IF EXISTS InsertarRol;
-GO
-CREATE PROCEDURE InsertarRol
-    @nombre NVARCHAR(50)
-AS
-BEGIN
-    INSERT INTO Roles (nombre_rol) VALUES (@nombre);
-END;
-GO
-
--- Procedimiento para obtener todos los roles
-DROP PROCEDURE IF EXISTS ObtenerRoles;
-GO
-CREATE PROCEDURE ObtenerRoles
-AS
-BEGIN
-    SELECT * FROM Roles;
-END;
-GO
-
--- Procedimiento para insertar un equipo
-DROP PROCEDURE IF EXISTS InsertarEquipo;
-GO
-CREATE PROCEDURE InsertarEquipo
-    @nombre NVARCHAR(100)
-AS
-BEGIN
-    INSERT INTO Equipos (nombre_equipo) VALUES (@nombre);
-END;
-GO
-
-
-
--- Procedimiento para insertar una tarea
-DROP PROCEDURE IF EXISTS InsertarTarea;
-GO
-CREATE PROCEDURE InsertarTarea
-    @proyecto_id INT,
-    @titulo NVARCHAR(100),
-    @descripcion NVARCHAR(255),
-    @fecha_limite DATETIME,
-    @estado_id INT
-AS
-BEGIN
-    INSERT INTO Tareas (proyecto_id, nombre_tarea, descripcion, fecha_creacion, fecha_limite, estado_id)
-    VALUES (@proyecto_id, @titulo, @descripcion, GETDATE(), @fecha_limite, @estado_id);
-END;
-GO
-
--- Procedimiento para eliminar una tarea
-DROP PROCEDURE IF EXISTS EliminarTarea;
-GO
-CREATE PROCEDURE EliminarTarea
-    @id_tarea INT
-AS
-
-BEGIN
-    IF EXISTS (SELECT 1 FROM Tareas WHERE id = @id_tarea)
-    BEGIN
-        DELETE FROM Tareas WHERE id = @id_tarea;
-    END;
-END;
-GO
 
 -- Procedimiento para obtener notificaciones de un usuario
 DROP PROCEDURE IF EXISTS ObtenerNotificacionesUsuario;
@@ -1230,85 +1373,3 @@ END;
 GO
 
 -- Procedimiento para actualizar una tarea
-DROP PROCEDURE IF EXISTS ActualizarTarea;
-GO
-CREATE PROCEDURE ActualizarTarea
-    @id_tarea INT,
-    @proyecto_id INT,
-    @nombre_tarea NVARCHAR(255),
-    @descripcion NVARCHAR(MAX),
-    @fecha_limite DATETIME,
-    @estado_id INT
-AS
-BEGIN
-    UPDATE Tareas
-    SET proyecto_id = @proyecto_id,
-        nombre_tarea = @nombre_tarea,
-        descripcion = @descripcion,
-        fecha_limite = @fecha_limite,
-        estado_id = @estado_id
-    WHERE id = @id_tarea;
-    
-    SELECT * FROM Tareas WHERE id = @id_tarea;
-END;
-GO
-
--- Procedimiento para desasignar un usuario de una tarea
-DROP PROCEDURE IF EXISTS DesasignarUsuarioDeTarea;
-GO
-CREATE PROCEDURE DesasignarUsuarioDeTarea
-    @tarea_id INT,
-    @usuario_id INT
-AS
-BEGIN
-    DELETE FROM Usuarios_Tareas
-    WHERE tarea_id = @tarea_id AND usuario_id = @usuario_id;
-END;
-GO
-
--- Procedimiento para agregar un miembro a un equipo
-DROP PROCEDURE IF EXISTS AgregarMiembroEquipo;
-GO
-CREATE PROCEDURE AgregarMiembroEquipo
-    @equipo_id INT,
-    @usuario_id INT,
-    @rol NVARCHAR(50)
-AS
-BEGIN
-    INSERT INTO Miembros_Equipo (equipo_id, usuario_id, rol)
-    VALUES (@equipo_id, @usuario_id, @rol);
-    
-    SELECT * FROM Miembros_Equipo WHERE equipo_id = @equipo_id AND usuario_id = @usuario_id;
-END;
-GO
-
--- Procedimiento para crear un equipo
-DROP PROCEDURE IF EXISTS CrearEquipo;
-GO
-CREATE PROCEDURE CrearEquipo
-    @nombre_equipo NVARCHAR(255),
-    @descripcion NVARCHAR(MAX)
-AS
-BEGIN
-    INSERT INTO Equipos (nombre_equipo, descripcion)
-    VALUES (@nombre_equipo, @descripcion);
-    
-    SELECT SCOPE_IDENTITY() AS id_equipo;
-END;
-GO
-
-
-
--- Procedimiento para obtener roles de un usuario
-DROP PROCEDURE IF EXISTS ObtenerRolesDeUsuario;
-GO
-CREATE PROCEDURE ObtenerRolesDeUsuario
-    @id INT
-AS
-BEGIN
-    SELECT r.id, r.nombre_rol
-    FROM Roles r
-    INNER JOIN Usuarios_Roles ur ON r.id = ur.rol_id
-    WHERE ur.usuario_id = @id;
-END;
-GO

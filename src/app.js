@@ -8,6 +8,7 @@ const { verifyToken } = require('./middleware/auth');
 // Import routes
 const authRoutes = require('./routes/auth');
 const invitacionesRoutes = require('./routes/invtaciones'); // Corrected import
+const anunciosRoutes = require('./routes/anuncios');
 const usersRoutes = require('./routes/users');
 const projectsRoutes = require('./routes/projects');
 const tasksRoutes = require('./routes/tasks');
@@ -40,6 +41,7 @@ app.use('/api/projects',verifyToken, projectsRoutes);
 app.use('/api/tasks', verifyToken, tasksRoutes);
 app.use('/api/calendar', verifyToken, calendarRoutes);
 app.use('/api/notifications', verifyToken, notificationsRoutes);
+app.use('/api/anuncios', verifyToken, anunciosRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

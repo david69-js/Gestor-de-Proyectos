@@ -7,6 +7,7 @@
     -- Creaciion automatica de roles
 - Creacion de usuarios
     -- Creacion de los 3 tipos de usuarios
+    -- Imangen de perfil
     -- Invitar a usuarios a una organizacion mediante correo electronico y tokens
     -- Creacion de Organizaciones
     -- Actualizacion de informacion de usuario
@@ -26,7 +27,6 @@
 
 
 # Objetivos por alcanzar
--- Imangen de perfil
 -- Anuncios
 -- Reportes
 -- Noficaciones
