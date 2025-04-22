@@ -1437,6 +1437,60 @@ BEGIN
 END;
 GO
 
+
+CREATE OR ALTER PROCEDURE sp_ObtenerNotificaciones
+    @usuario_id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        n.*,
+        u.nombre as nombre_usuario_origen
+    FROM Notificaciones n
+    LEFT JOIN Usuarios u ON u.id = n.usuario_origen_id
+    WHERE n.usuario_id = @usuario_id
+    ORDER BY n.fecha_notificacion DESC;
+END;
+GO
+
+-- Procedimiento para marcar una notificación como leída
+CREATE OR ALTER PROCEDURE sp_MarcarNotificacionComoLeida
+    @id INT,
+    @usuario_id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    UPDATE Notificaciones 
+    SET leida = 1 
+    WHERE id = @id AND usuario_id = @usuario_id;
+    
+    -- Devolver la notificación actualizada
+    SELECT * FROM Notificaciones WHERE id = @id;
+END;
+GO
+
+-- Procedimiento para obtener notificaciones no leídas
+CREATE OR ALTER PROCEDURE sp_ObtenerNotificacionesNoLeidas
+    @usuario_id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        n.*,
+        u.nombre as nombre_usuario_origen
+    FROM Notificaciones n
+    LEFT JOIN Usuarios u ON u.id = n.usuario_origen_id
+    WHERE n.usuario_id = @usuario_id 
+    AND n.leida = 0
+    ORDER BY n.fecha_notificacion DESC;
+END;
+GO
+
+
+
 -- Trigger para nuevos anuncios
 DROP TRIGGER TR_Notificar_Anuncio
 GO

@@ -13,7 +13,7 @@ const usersRoutes = require('./routes/users');
 const projectsRoutes = require('./routes/projects');
 const tasksRoutes = require('./routes/tasks');
 const calendarRoutes = require('./routes/calendar');
-const notificationsRoutes = require('./routes/notifications');
+const notificationsRoutes = require('./routes/notificaciones');
 
 const app = express();
 
