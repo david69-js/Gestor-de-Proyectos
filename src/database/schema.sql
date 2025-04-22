@@ -1464,6 +1464,35 @@ END;
 GO
 
 
+
+DROP TRIGGER IF EXISTS TR_Notificar_Asignacion_Proyecto;
+GO
+CREATE TRIGGER TR_Notificar_Asignacion_Proyecto
+ON Usuarios_Proyectos
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Declaración de variables
+    DECLARE @nombre_proyecto VARCHAR(255);
+    
+    INSERT INTO Notificaciones (
+        usuario_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje
+    )
+    SELECT
+        i.id_usuario,
+        'asignacion_proyecto',
+        i.id_proyecto,
+        CONCAT('Has sido asignado al proyecto: ', p.nombre_proyecto)
+    FROM inserted i
+    INNER JOIN Proyectos p ON p.id = i.id_proyecto;
+END;
+GO
+
 DROP PROCEDURE IF EXISTS sp_ObtenerNotificaciones;
 GO
 CREATE PROCEDURE sp_ObtenerNotificaciones
@@ -1504,20 +1533,26 @@ END;
 GO
 
 -- Procedimiento para obtener notificaciones no leídas
-CREATE OR ALTER PROCEDURE sp_ObtenerNotificacionesNoLeidas
+DROP PROCEDURE IF EXISTS sp_ObtenerNotificacionesNoLeidas;
+GO
+CREATE PROCEDURE sp_ObtenerNotificacionesNoLeidas
     @usuario_id INT
 AS
 BEGIN
     SET NOCOUNT ON;
     
     SELECT 
-        n.*,
-        u.nombre as nombre_usuario_origen
-    FROM Notificaciones n
-    LEFT JOIN Usuarios u ON u.id = n.usuario_origen_id
-    WHERE n.usuario_id = @usuario_id 
-    AND n.leida = 0
-    ORDER BY n.fecha_notificacion DESC;
+        id,
+        usuario_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje,
+        fecha_notificacion,
+        leida
+    FROM Notificaciones
+    WHERE usuario_id = @usuario_id
+        AND leida = 0
+    ORDER BY fecha_notificacion DESC;
 END;
 GO
 
