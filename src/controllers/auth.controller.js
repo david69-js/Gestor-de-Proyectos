@@ -10,15 +10,18 @@ async function registerUser(userData) {
     imagen_perfil,
     numero_telefono,
     fecha_nacimiento,
-    token,                 // Token de invitación opcional
-    nombre_organizacion    // Solo se usa si es Admin y crea una nueva organización
+    token,
+    nombre_organizacion
   } = userData;
 
   const pool = await getConnection();
+  const transaction = pool.transaction();
 
   try {
+    await transaction.begin();
+
     // Verificar si el correo ya está registrado
-    const userExists = await pool.request()
+    const userExists = await transaction.request()
       .input('correo', correo)
       .execute('sp_CompararContrasena');
 
@@ -30,13 +33,11 @@ async function registerUser(userData) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(contrasena, salt);
 
-    // Preparar variables que serán enviadas al SP
+    // Preparar variables
     let id_organizacion = null;
     let id_proyecto = null;
-    let rol = 1; // Por defecto si no hay token
+    let rol = 1;
 
-    // Si viene token de invitación, lo descifra y actualiza las variables
-   
     if (token) {
       try {
         const invitacion = jwt.verify(token, process.env.JWT_SECRET);
@@ -48,8 +49,8 @@ async function registerUser(userData) {
       }
     }
 
-    // Obtener ID real del rol desde la base de datos
-    const rolResult = await pool.request()
+    // Verificar rol
+    const rolResult = await transaction.request()
       .input('rol_id', rol)
       .query('SELECT id FROM Roles WHERE id = @rol_id');
 
@@ -59,10 +60,8 @@ async function registerUser(userData) {
 
     const id_rol = rolResult.recordset[0].id;
 
-    console.log('Rol ID:', id_rol);  // Agrega esta línea para depuració
-
-    // Llamar al procedimiento almacenado para registrar usuario
-    const result = await pool.request()
+    // Registrar usuario
+    const result = await transaction.request()
       .input('nombre', nombre)
       .input('correo', correo)
       .input('contrasena', hashedPassword)
@@ -82,6 +81,8 @@ async function registerUser(userData) {
       throw new Error('El registro del usuario falló');
     }
 
+    await transaction.commit();
+
     return {
       id_usuario: userId,
       nombre,
@@ -91,66 +92,60 @@ async function registerUser(userData) {
     };
 
   } catch (error) {
+    await transaction.rollback();
     console.error('Error registrando usuario:', error.message);
     throw error;
   }
 }
 
-  
 async function loginUser(userData) {
-    const { correo, contrasena } = userData;
-    try {
-        const pool = await getConnection();
+  const { correo, contrasena } = userData;
+  const pool = await getConnection();
+  // No necesitamos transacción para login ya que es solo lectura
+  
+  try {
+    const result = await pool.request()
+      .input('correo', correo)
+      .execute('sp_CompararContrasena');
 
-        // Get user with password
-        const result = await pool.request()
-            .input('correo', correo)
-            .execute('sp_CompararContrasena');  // Direct query instead of SP
-
-        if (result.recordset.length === 0) {
-            throw new Error('Invalid credentials');
-        }
-        
-        const user = result.recordset[0];
-
-        // Verify password
-        const validPassword = await bcrypt.compare(contrasena, user.contrasena);
-        if (!validPassword) {
-            throw new Error('Invalid credentials');
-        }
-
-        // Get additional user info
-        const userInfo = await pool.request()
-            .input('correo', correo)
-            .execute('sp_ObtenerInformacionUsuario');
-
-        const userDetails = userInfo.recordset[0];
-
-        const token = jwt.sign(
-            { 
-                id: userDetails.id,
-                id_organizacion: userDetails.id_organizacion,
-                rol: userDetails.nombre_rol
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        // Return user info without password
-        return {
-            user: userDetails,
-            token
-        };
-    } catch (error) {
-        console.error('Error logging in:', error);
-        throw error;
+    if (result.recordset.length === 0) {
+      throw new Error('Invalid credentials');
     }
+    
+    const user = result.recordset[0];
+    const validPassword = await bcrypt.compare(contrasena, user.contrasena);
+    
+    if (!validPassword) {
+      throw new Error('Invalid credentials');
+    }
+
+    const userInfo = await pool.request()
+      .input('correo', correo)
+      .execute('sp_ObtenerInformacionUsuario');
+
+    const userDetails = userInfo.recordset[0];
+
+    const token = jwt.sign(
+      { 
+        id: userDetails.id,
+        id_organizacion: userDetails.id_organizacion,
+        rol: userDetails.nombre_rol
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    return {
+      user: userDetails,
+      token
+    };
+  } catch (error) {
+    console.error('Error logging in:', error);
+    throw error;
+  }
 }
 
-
-
-
 module.exports = {
-    registerUser,
-    loginUser,
+  registerUser,
+  loginUser,
 };
