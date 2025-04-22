@@ -172,9 +172,9 @@ END;
 -- Ensure all columns are correctly defined in their respective tables
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Notificaciones' AND xtype = 'U')
 BEGIN
-    CREATE TABLE Notificaciones (
+   CREATE TABLE Notificaciones (
         id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id) ON DELETE CASCADE,
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id), -- Usuario que recibirá la notificación
         tipo_notificacion VARCHAR(50), -- 'comentario', 'asignacion', 'estado', 'anuncio'
         referencia_id INT, -- ID de la tarea, anuncio u otro elemento relacionado
         mensaje VARCHAR(255),
@@ -1342,7 +1342,7 @@ GO
 
 
 
-DROP TRIGGER TR_Notificar_Comentario
+DROP TRIGGER IF EXISTS TR_Notificar_Comentario;
 GO
 CREATE TRIGGER TR_Notificar_Comentario
 ON Comentarios
@@ -1351,29 +1351,30 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
+    -- Declaración de variables
+    DECLARE @nombre_tarea VARCHAR(255);
+    
     INSERT INTO Notificaciones (
         usuario_id,
-        usuario_origen_id,
         tipo_notificacion,
         referencia_id,
         mensaje
     )
-    SELECT 
+    SELECT
         ut.usuario_id,
-        i.usuario_id,
         'comentario',
         i.tarea_id,
-        CONCAT(u.nombre, ' comentó en la tarea: ', t.nombre_tarea)
+        CONCAT('Nuevo comentario en la tarea: ', t.nombre_tarea)
     FROM inserted i
     INNER JOIN Tareas t ON t.id = i.tarea_id
     INNER JOIN Usuarios_Tareas ut ON ut.tarea_id = i.tarea_id
-    INNER JOIN Usuarios u ON u.id = i.usuario_id
     WHERE ut.usuario_id != i.usuario_id;
 END;
 GO
 
+
 -- Trigger para asignación de tareas
-DROP TRIGGER TR_Notificar_Asignacion_Tarea
+DROP TRIGGER IF EXISTS TR_Notificar_Asignacion_Tarea;
 GO
 CREATE TRIGGER TR_Notificar_Asignacion_Tarea
 ON Usuarios_Tareas
@@ -1382,28 +1383,28 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
+    -- Declaración de variables
+    DECLARE @nombre_tarea VARCHAR(255);
+    
     INSERT INTO Notificaciones (
         usuario_id,
-        usuario_origen_id,
         tipo_notificacion,
         referencia_id,
         mensaje
     )
-    SELECT 
+    SELECT
         i.usuario_id,
-        SYSTEM_USER, -- Usuario del sistema que realiza la asignación
         'asignacion',
         i.tarea_id,
-        CONCAT('Has sido asignado a la tarea: ', t.nombre_tarea, ' por ', u.nombre)
+        CONCAT('Has sido asignado a la tarea: ', t.nombre_tarea)
     FROM inserted i
-    INNER JOIN Tareas t ON t.id = i.tarea_id
-    INNER JOIN Usuarios u ON u.id = SYSTEM_USER;
+    INNER JOIN Tareas t ON t.id = i.tarea_id;
 END;
 GO
 
 
 -- Trigger para cambios de estado en tareas
-DROP TRIGGER TR_Notificar_Estado_Tarea
+DROP TRIGGER IF EXISTS TR_Notificar_Estado_Tarea;
 GO
 CREATE TRIGGER TR_Notificar_Estado_Tarea
 ON Tareas
@@ -1412,27 +1413,52 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
+    -- Variables para almacenar los cambios
+    DECLARE @nombre_tarea VARCHAR(255);
+    DECLARE @estado VARCHAR(50);
+    DECLARE @mensaje VARCHAR(500);
+    
+    -- Verificar si hubo cambio en el estado
     IF UPDATE(estado_id)
     BEGIN
         INSERT INTO Notificaciones (
             usuario_id,
-            usuario_origen_id,
             tipo_notificacion,
             referencia_id,
             mensaje
         )
-        SELECT 
+        SELECT
             ut.usuario_id,
-            SYSTEM_USER, -- Usuario que realiza el cambio
             'estado',
             i.id,
-            CONCAT(u.nombre, ' cambió el estado de la tarea ', i.nombre_tarea, ' a: ', et.estado)
+            CONCAT('El estado de la tarea ', i.nombre_tarea, ' ha cambiado a: ', et.estado)
         FROM inserted i
         INNER JOIN deleted d ON i.id = d.id
         INNER JOIN Estados_Tarea et ON et.id = i.estado_id
         INNER JOIN Usuarios_Tareas ut ON ut.tarea_id = i.id
-        INNER JOIN Usuarios u ON u.id = SYSTEM_USER
         WHERE i.estado_id != d.estado_id;
+    END
+
+    -- Verificar otros cambios en la tarea
+    IF UPDATE(nombre_tarea) OR UPDATE(descripcion) OR UPDATE(fecha_limite)
+    BEGIN
+        INSERT INTO Notificaciones (
+            usuario_id,
+            tipo_notificacion,
+            referencia_id,
+            mensaje
+        )
+        SELECT
+            ut.usuario_id,
+            'actualizacion',
+            i.id,
+            CONCAT('La tarea ', i.nombre_tarea, ' ha sido actualizada')
+        FROM inserted i
+        INNER JOIN deleted d ON i.id = d.id
+        INNER JOIN Usuarios_Tareas ut ON ut.tarea_id = i.id
+        WHERE i.nombre_tarea != d.nombre_tarea 
+           OR i.descripcion != d.descripcion 
+           OR i.fecha_limite != d.fecha_limite;
     END
 END;
 GO

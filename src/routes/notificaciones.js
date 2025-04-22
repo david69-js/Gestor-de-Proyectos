@@ -9,7 +9,7 @@ const {
 // Obtener todas las notificaciones del usuario
 router.get('/', async (req, res) => {
     try {
-        const id_usuario = req.user.id_usuario;
+        const id_usuario = req.user.id;
         const notificaciones = await obtenerNotificaciones(id_usuario);
         res.json(notificaciones);
     } catch (error) {
@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
 // Marcar notificación como leída
 router.put('/:id/leer', async (req, res) => {
     try {
-        const id_usuario = req.user.id_usuario;
+        const id_usuario = req.user.id;
         const resultado = await marcarComoLeida(req.params.id, id_usuario);
         res.json(resultado);
     } catch (error) {
@@ -31,7 +31,7 @@ router.put('/:id/leer', async (req, res) => {
 // Obtener notificaciones no leídas
 router.get('/no-leidas', async (req, res) => {
     try {
-        const id_usuario = req.user.id_usuario;
+        const id_usuario = req.user.id;
         const notificaciones = await obtenerNotificacionesNoLeidas(id_usuario);
         res.json(notificaciones);
     } catch (error) {
