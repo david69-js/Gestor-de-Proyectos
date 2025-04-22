@@ -170,19 +170,19 @@ BEGIN
 END;
 
 -- Ensure all columns are correctly defined in their respective tables
--- Example table definition for Notificaciones
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Notificaciones' AND xtype = 'U')
 BEGIN
     CREATE TABLE Notificaciones (
         id INT PRIMARY KEY IDENTITY(1,1),
         usuario_id INT FOREIGN KEY REFERENCES Usuarios(id) ON DELETE CASCADE,
+        tipo_notificacion VARCHAR(50), -- 'comentario', 'asignacion', 'estado', 'anuncio'
+        referencia_id INT, -- ID de la tarea, anuncio u otro elemento relacionado
         mensaje VARCHAR(255),
         fecha_notificacion DATETIME DEFAULT GETDATE(),
-        leida BIT DEFAULT 0 -- Ensure 'leida' column is defined
+        leida BIT DEFAULT 0
     );
 END;
 GO
-
 
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Proyectos' AND xtype = 'U')
 BEGIN
@@ -1340,36 +1340,133 @@ END;
 GO
 
 
----<<> Prodedimientos almacernados controlados<><>---
 
 
--- Procedimiento para obtener notificaciones de un usuario
-DROP PROCEDURE IF EXISTS ObtenerNotificacionesUsuario;
+DROP TRIGGER TR_Notificar_Comentario
 GO
-CREATE PROCEDURE ObtenerNotificacionesUsuario
-    @usuario_id INT
+CREATE TRIGGER TR_Notificar_Comentario
+ON Comentarios
+AFTER INSERT
 AS
 BEGIN
-    SELECT *
-    FROM Notificaciones
-    WHERE usuario_id = @usuario_id;
-END;
-GO
-
--- Procedimiento para crear una notificación
-DROP PROCEDURE IF EXISTS CrearNotificacion;
-GO
-CREATE PROCEDURE CrearNotificacion
-    @usuario_id INT,
-    @mensaje NVARCHAR(255)
-AS
-BEGIN
-    INSERT INTO Notificaciones (usuario_id, mensaje, fecha_notificacion, leida)
-    VALUES (@usuario_id, @mensaje, GETDATE(), 0);
+    SET NOCOUNT ON;
     
-    -- Return the inserted notification
-    SELECT SCOPE_IDENTITY() AS id_notificacion;
+    INSERT INTO Notificaciones (
+        usuario_id,
+        usuario_origen_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje
+    )
+    SELECT 
+        ut.usuario_id,
+        i.usuario_id,
+        'comentario',
+        i.tarea_id,
+        CONCAT(u.nombre, ' comentó en la tarea: ', t.nombre_tarea)
+    FROM inserted i
+    INNER JOIN Tareas t ON t.id = i.tarea_id
+    INNER JOIN Usuarios_Tareas ut ON ut.tarea_id = i.tarea_id
+    INNER JOIN Usuarios u ON u.id = i.usuario_id
+    WHERE ut.usuario_id != i.usuario_id;
 END;
 GO
 
--- Procedimiento para actualizar una tarea
+-- Trigger para asignación de tareas
+DROP TRIGGER TR_Notificar_Asignacion_Tarea
+GO
+CREATE TRIGGER TR_Notificar_Asignacion_Tarea
+ON Usuarios_Tareas
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    INSERT INTO Notificaciones (
+        usuario_id,
+        usuario_origen_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje
+    )
+    SELECT 
+        i.usuario_id,
+        SYSTEM_USER, -- Usuario del sistema que realiza la asignación
+        'asignacion',
+        i.tarea_id,
+        CONCAT('Has sido asignado a la tarea: ', t.nombre_tarea, ' por ', u.nombre)
+    FROM inserted i
+    INNER JOIN Tareas t ON t.id = i.tarea_id
+    INNER JOIN Usuarios u ON u.id = SYSTEM_USER;
+END;
+GO
+
+
+-- Trigger para cambios de estado en tareas
+DROP TRIGGER TR_Notificar_Estado_Tarea
+GO
+CREATE TRIGGER TR_Notificar_Estado_Tarea
+ON Tareas
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    IF UPDATE(estado_id)
+    BEGIN
+        INSERT INTO Notificaciones (
+            usuario_id,
+            usuario_origen_id,
+            tipo_notificacion,
+            referencia_id,
+            mensaje
+        )
+        SELECT 
+            ut.usuario_id,
+            SYSTEM_USER, -- Usuario que realiza el cambio
+            'estado',
+            i.id,
+            CONCAT(u.nombre, ' cambió el estado de la tarea ', i.nombre_tarea, ' a: ', et.estado)
+        FROM inserted i
+        INNER JOIN deleted d ON i.id = d.id
+        INNER JOIN Estados_Tarea et ON et.id = i.estado_id
+        INNER JOIN Usuarios_Tareas ut ON ut.tarea_id = i.id
+        INNER JOIN Usuarios u ON u.id = SYSTEM_USER
+        WHERE i.estado_id != d.estado_id;
+    END
+END;
+GO
+
+-- Trigger para nuevos anuncios
+DROP TRIGGER TR_Notificar_Anuncio
+GO
+CREATE TRIGGER TR_Notificar_Anuncio
+ON Anuncios
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    INSERT INTO Notificaciones (
+        usuario_id,
+        usuario_origen_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje
+    )
+    SELECT 
+        uo.id_usuario,
+        i.id_usuario,
+        'anuncio',
+        i.id_anuncio,
+        CONCAT(u.nombre, ' publicó un nuevo anuncio en ', p.nombre_proyecto, ': ', i.titulo)
+    FROM inserted i
+    INNER JOIN Proyectos p ON p.id = i.id_proyecto
+    INNER JOIN Usuarios_Organizaciones uo ON uo.id_organizacion = i.id_organizacion
+    INNER JOIN Usuarios u ON u.id = i.id_usuario
+    WHERE uo.id_usuario != i.id_usuario;
+END;
+GO
+
+
+---<<> Prodedimientos almacernados controlados<><>---
