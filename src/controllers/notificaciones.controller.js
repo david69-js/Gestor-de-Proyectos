@@ -1,10 +1,10 @@
 const { getConnection } = require('../config/db');
 
-async function obtenerNotificaciones(user) {
+async function obtenerNotificaciones(id_usuario) {
     try {
         const pool = await getConnection();
         const result = await pool.request()
-            .input('usuario_id', user.id)
+            .input('usuario_id', id_usuario)
             .execute('sp_ObtenerNotificaciones');
         
         return result.recordset;
@@ -14,12 +14,12 @@ async function obtenerNotificaciones(user) {
     }
 }
 
-async function marcarComoLeida(id, user) {
+async function marcarComoLeida(id, id_usuario) {
     try {
         const pool = await getConnection();
         const result = await pool.request()
             .input('id', id)
-            .input('usuario_id', user.id)
+            .input('usuario_id', id_usuario)
             .execute('sp_MarcarNotificacionComoLeida');
         
         return { mensaje: 'Notificación marcada como leída' };
@@ -29,11 +29,11 @@ async function marcarComoLeida(id, user) {
     }
 }
 
-async function obtenerNotificacionesNoLeidas(user) {
+async function obtenerNotificacionesNoLeidas(id_usuario) {
     try {
         const pool = await getConnection();
         const result = await pool.request()
-            .input('usuario_id', user.id)
+            .input('usuario_id', id_usuario)
             .execute('sp_ObtenerNotificacionesNoLeidas');
         
         return result.recordset;

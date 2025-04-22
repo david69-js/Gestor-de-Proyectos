@@ -1464,19 +1464,25 @@ END;
 GO
 
 
-CREATE OR ALTER PROCEDURE sp_ObtenerNotificaciones
+DROP PROCEDURE IF EXISTS sp_ObtenerNotificaciones;
+GO
+CREATE PROCEDURE sp_ObtenerNotificaciones
     @usuario_id INT
 AS
 BEGIN
     SET NOCOUNT ON;
     
     SELECT 
-        n.*,
-        u.nombre as nombre_usuario_origen
-    FROM Notificaciones n
-    LEFT JOIN Usuarios u ON u.id = n.usuario_origen_id
-    WHERE n.usuario_id = @usuario_id
-    ORDER BY n.fecha_notificacion DESC;
+        id,
+        usuario_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje,
+        fecha_notificacion,
+        leida
+    FROM Notificaciones
+    WHERE usuario_id = @usuario_id
+    ORDER BY fecha_notificacion DESC;
 END;
 GO
 

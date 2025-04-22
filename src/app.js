@@ -40,7 +40,7 @@ app.use('/api/users', verifyToken, usersRoutes);
 app.use('/api/projects',verifyToken, projectsRoutes);
 app.use('/api/tasks', verifyToken, tasksRoutes);
 app.use('/api/calendar', verifyToken, calendarRoutes);
-app.use('/api/notifications', verifyToken, notificationsRoutes);
+app.use('/api/notificaciones', verifyToken, notificationsRoutes);
 app.use('/api/anuncios', verifyToken, anunciosRoutes);
 
 // Error handling middleware
