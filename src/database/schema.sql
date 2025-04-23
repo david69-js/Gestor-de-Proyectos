@@ -162,7 +162,7 @@ BEGIN
         proyecto_id INT NULL,  -- Puede ser NULL si es una invitación a un equipo
         rol_id INT NOT NULL,  -- Rol asignado al usuario al aceptar la invitación
         estado VARCHAR(20) DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aceptada', 'rechazada')),
-        codigo_confirmacion VARCHAR(50) NOT NULL,  -- Código único para la invitación
+        codigo_confirmacion VARCHAR(512) NOT NULL,  -- Código único para la invitación
         fecha_creacion DATETIME DEFAULT GETDATE(),
         FOREIGN KEY (proyecto_id) REFERENCES Proyectos(id) ON DELETE CASCADE,
         FOREIGN KEY (rol_id) REFERENCES Roles(id) ON DELETE CASCADE
@@ -170,19 +170,19 @@ BEGIN
 END;
 
 -- Ensure all columns are correctly defined in their respective tables
--- Example table definition for Notificaciones
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Notificaciones' AND xtype = 'U')
 BEGIN
-    CREATE TABLE Notificaciones (
+   CREATE TABLE Notificaciones (
         id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id) ON DELETE CASCADE,
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id), -- Usuario que recibirá la notificación
+        tipo_notificacion VARCHAR(50), -- 'comentario', 'asignacion', 'estado', 'anuncio'
+        referencia_id INT, -- ID de la tarea, anuncio u otro elemento relacionado
         mensaje VARCHAR(255),
         fecha_notificacion DATETIME DEFAULT GETDATE(),
-        leida BIT DEFAULT 0 -- Ensure 'leida' column is defined
+        leida BIT DEFAULT 0
     );
 END;
 GO
-
 
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Proyectos' AND xtype = 'U')
 BEGIN
@@ -374,7 +374,8 @@ CREATE PROCEDURE sp_RegistrarUsuarioConInvitacion
     @nombre_organizacion NVARCHAR(100),
     @id_rol INT,
     @id_organizacion INT = NULL,
-    @id_proyecto INT = NULL
+    @id_proyecto INT = NULL,
+    @codigo_invitacion VARCHAR(512) = NULL  
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -418,6 +419,14 @@ BEGIN
             PRINT '⚠️ Usuario es colaborador o cliente, pero no se asignó a ningún proyecto (id_proyecto NULL).';
         END
     END
+
+     IF @codigo_invitacion IS NOT NULL
+        BEGIN
+            UPDATE Invitaciones
+            SET estado = 'aceptada'
+            WHERE codigo_confirmacion = @codigo_invitacion
+            AND correo = @correo;
+        END
 
     SELECT @id_usuario AS usuario_id, @id_organizacion AS organizacion_id;
 END
@@ -1340,36 +1349,359 @@ END;
 GO
 
 
----<<> Prodedimientos almacernados controlados<><>---
 
 
--- Procedimiento para obtener notificaciones de un usuario
-DROP PROCEDURE IF EXISTS ObtenerNotificacionesUsuario;
+DROP TRIGGER IF EXISTS TR_Notificar_Comentario;
 GO
-CREATE PROCEDURE ObtenerNotificacionesUsuario
+CREATE TRIGGER TR_Notificar_Comentario
+ON Comentarios
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Declaración de variables
+    DECLARE @nombre_tarea VARCHAR(255);
+    
+    INSERT INTO Notificaciones (
+        usuario_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje
+    )
+    SELECT
+        ut.usuario_id,
+        'comentario',
+        i.tarea_id,
+        CONCAT('Nuevo comentario en la tarea: ', t.nombre_tarea)
+    FROM inserted i
+    INNER JOIN Tareas t ON t.id = i.tarea_id
+    INNER JOIN Usuarios_Tareas ut ON ut.tarea_id = i.tarea_id
+    WHERE ut.usuario_id != i.usuario_id;
+END;
+GO
+
+
+-- Trigger para asignación de tareas
+DROP TRIGGER IF EXISTS TR_Notificar_Asignacion_Tarea;
+GO
+CREATE TRIGGER TR_Notificar_Asignacion_Tarea
+ON Usuarios_Tareas
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Declaración de variables
+    DECLARE @nombre_tarea VARCHAR(255);
+    
+    INSERT INTO Notificaciones (
+        usuario_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje
+    )
+    SELECT
+        i.usuario_id,
+        'asignacion',
+        i.tarea_id,
+        CONCAT('Has sido asignado a la tarea: ', t.nombre_tarea)
+    FROM inserted i
+    INNER JOIN Tareas t ON t.id = i.tarea_id;
+END;
+GO
+
+
+-- Trigger para cambios de estado en tareas
+DROP TRIGGER IF EXISTS TR_Notificar_Estado_Tarea;
+GO
+CREATE TRIGGER TR_Notificar_Estado_Tarea
+ON Tareas
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Variables para almacenar los cambios
+    DECLARE @nombre_tarea VARCHAR(255);
+    DECLARE @estado VARCHAR(50);
+    DECLARE @mensaje VARCHAR(500);
+    
+    -- Verificar si hubo cambio en el estado
+    IF UPDATE(estado_id)
+    BEGIN
+        INSERT INTO Notificaciones (
+            usuario_id,
+            tipo_notificacion,
+            referencia_id,
+            mensaje
+        )
+        SELECT
+            ut.usuario_id,
+            'estado',
+            i.id,
+            CONCAT('El estado de la tarea ', i.nombre_tarea, ' ha cambiado a: ', et.estado)
+        FROM inserted i
+        INNER JOIN deleted d ON i.id = d.id
+        INNER JOIN Estados_Tarea et ON et.id = i.estado_id
+        INNER JOIN Usuarios_Tareas ut ON ut.tarea_id = i.id
+        WHERE i.estado_id != d.estado_id;
+    END
+
+    -- Verificar otros cambios en la tarea
+    IF UPDATE(nombre_tarea) OR UPDATE(descripcion) OR UPDATE(fecha_limite)
+    BEGIN
+        INSERT INTO Notificaciones (
+            usuario_id,
+            tipo_notificacion,
+            referencia_id,
+            mensaje
+        )
+        SELECT
+            ut.usuario_id,
+            'actualizacion',
+            i.id,
+            CONCAT('La tarea ', i.nombre_tarea, ' ha sido actualizada')
+        FROM inserted i
+        INNER JOIN deleted d ON i.id = d.id
+        INNER JOIN Usuarios_Tareas ut ON ut.tarea_id = i.id
+        WHERE i.nombre_tarea != d.nombre_tarea 
+           OR i.descripcion != d.descripcion 
+           OR i.fecha_limite != d.fecha_limite;
+    END
+END;
+GO
+
+
+
+DROP TRIGGER IF EXISTS TR_Notificar_Asignacion_Proyecto;
+GO
+CREATE TRIGGER TR_Notificar_Asignacion_Proyecto
+ON Usuarios_Proyectos
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Declaración de variables
+    DECLARE @nombre_proyecto VARCHAR(255);
+    
+    INSERT INTO Notificaciones (
+        usuario_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje
+    )
+    SELECT
+        i.id_usuario,
+        'asignacion_proyecto',
+        i.id_proyecto,
+        CONCAT('Has sido asignado al proyecto: ', p.nombre_proyecto)
+    FROM inserted i
+    INNER JOIN Proyectos p ON p.id = i.id_proyecto;
+END;
+GO
+
+DROP PROCEDURE IF EXISTS sp_ObtenerNotificaciones;
+GO
+CREATE PROCEDURE sp_ObtenerNotificaciones
     @usuario_id INT
 AS
 BEGIN
-    SELECT *
+    SET NOCOUNT ON;
+    
+    SELECT 
+        id,
+        usuario_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje,
+        fecha_notificacion,
+        leida
     FROM Notificaciones
-    WHERE usuario_id = @usuario_id;
+    WHERE usuario_id = @usuario_id
+    ORDER BY fecha_notificacion DESC;
 END;
 GO
 
--- Procedimiento para crear una notificación
-DROP PROCEDURE IF EXISTS CrearNotificacion;
-GO
-CREATE PROCEDURE CrearNotificacion
-    @usuario_id INT,
-    @mensaje NVARCHAR(255)
+-- Procedimiento para marcar una notificación como leída
+CREATE OR ALTER PROCEDURE sp_MarcarNotificacionComoLeida
+    @id INT,
+    @usuario_id INT
 AS
 BEGIN
-    INSERT INTO Notificaciones (usuario_id, mensaje, fecha_notificacion, leida)
-    VALUES (@usuario_id, @mensaje, GETDATE(), 0);
+    SET NOCOUNT ON;
     
-    -- Return the inserted notification
-    SELECT SCOPE_IDENTITY() AS id_notificacion;
+    UPDATE Notificaciones 
+    SET leida = 1 
+    WHERE id = @id AND usuario_id = @usuario_id;
+    
+    -- Devolver la notificación actualizada
+    SELECT * FROM Notificaciones WHERE id = @id;
 END;
 GO
 
--- Procedimiento para actualizar una tarea
+-- Procedimiento para obtener notificaciones no leídas
+DROP PROCEDURE IF EXISTS sp_ObtenerNotificacionesNoLeidas;
+GO
+CREATE PROCEDURE sp_ObtenerNotificacionesNoLeidas
+    @usuario_id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT 
+        id,
+        usuario_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje,
+        fecha_notificacion,
+        leida
+    FROM Notificaciones
+    WHERE usuario_id = @usuario_id
+        AND leida = 0
+    ORDER BY fecha_notificacion DESC;
+END;
+GO
+
+
+
+-- Trigger para nuevos anuncios
+DROP TRIGGER TR_Notificar_Anuncio
+GO
+CREATE TRIGGER TR_Notificar_Anuncio
+ON Anuncios
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    INSERT INTO Notificaciones (
+        usuario_id,
+        usuario_origen_id,
+        tipo_notificacion,
+        referencia_id,
+        mensaje
+    )
+    SELECT 
+        uo.id_usuario,
+        i.id_usuario,
+        'anuncio',
+        i.id_anuncio,
+        CONCAT(u.nombre, ' publicó un nuevo anuncio en ', p.nombre_proyecto, ': ', i.titulo)
+    FROM inserted i
+    INNER JOIN Proyectos p ON p.id = i.id_proyecto
+    INNER JOIN Usuarios_Organizaciones uo ON uo.id_organizacion = i.id_organizacion
+    INNER JOIN Usuarios u ON u.id = i.id_usuario
+    WHERE uo.id_usuario != i.id_usuario;
+END;
+GO
+
+
+--REPORTES-----
+
+CREATE PROCEDURE sp_GetProjectProgressReport
+    @id_proyecto INT = NULL,
+    @id_organizacion INT = NULL
+AS
+BEGIN
+    IF @id_proyecto IS NOT NULL
+    BEGIN
+        SELECT
+            p.nombre_proyecto AS nombre_proyecto,
+            COUNT(t.id) AS total_tareas,
+            SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) AS tareas_completadas,
+            (SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) * 100.0 / COUNT(t.id)) AS porcentaje_completado
+        FROM Proyectos p
+        LEFT JOIN Tareas t ON p.id = t.proyecto_id
+        LEFT JOIN Estados_Tarea e ON t.estado_id = e.id
+        WHERE p.id = @id_proyecto
+        GROUP BY p.nombre_proyecto
+    END
+    ELSE IF @id_organizacion IS NOT NULL
+    BEGIN
+        SELECT
+            p.nombre_proyecto AS nombre_proyecto,
+            COUNT(t.id) AS total_tareas,
+            SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) AS tareas_completadas,
+            (SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) * 100.0 / COUNT(t.id)) AS porcentaje_completado
+        FROM Proyectos p
+        LEFT JOIN Tareas t ON p.id = t.proyecto_id
+        LEFT JOIN Estados_Tarea e ON t.estado_id = e.id
+        WHERE p.organizacion_id = @id_organizacion
+        GROUP BY p.nombre_proyecto
+    END
+END
+
+CREATE PROCEDURE sp_GetUserParticipationReport
+    @id_organizacion INT,
+    @id_proyecto INT = NULL
+AS
+BEGIN
+    IF @id_proyecto IS NULL
+    BEGIN
+        SELECT
+            u.nombre AS nombre_usuario,
+            COUNT(ut.tarea_id) AS tareas_asignadas,
+            SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) AS tareas_completadas
+        FROM Usuarios u
+        JOIN Usuarios_Tareas ut ON u.id = ut.usuario_id
+        JOIN Tareas t ON ut.tarea_id = t.id
+        JOIN Estados_Tarea e ON t.estado_id = e.id
+        JOIN Usuarios_Organizaciones uo ON u.id = uo.id_usuario
+        WHERE uo.id_organizacion = @id_organizacion
+        GROUP BY u.nombre
+    END
+    ELSE
+    BEGIN
+        SELECT
+            u.nombre AS nombre_usuario,
+            COUNT(ut.tarea_id) AS tareas_asignadas,
+            SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) AS tareas_completadas
+        FROM Usuarios u
+        JOIN Usuarios_Tareas ut ON u.id = ut.usuario_id
+        JOIN Tareas t ON ut.tarea_id = t.id
+        JOIN Estados_Tarea e ON t.estado_id = e.id
+        WHERE t.proyecto_id = @id_proyecto
+        GROUP BY u.nombre
+    END
+END
+
+CREATE PROCEDURE sp_GetTimeTrackingReport
+    @id_usuario INT = NULL,
+    @startDate DATE,
+    @endDate DATE,
+    @id_proyecto INT = NULL
+AS
+BEGIN
+    IF @id_usuario IS NOT NULL
+    BEGIN
+        SELECT 
+            t.nombre_tarea AS nombre_tarea,
+            p.nombre_proyecto AS nombre_proyecto,
+            t.fecha_creacion,
+            t.fecha_limite
+        FROM Tareas t
+        JOIN Proyectos p ON t.proyecto_id = p.id
+        JOIN Usuarios_Tareas ut ON t.id = ut.tarea_id
+        WHERE ut.usuario_id = @id_usuario
+        AND t.fecha_creacion BETWEEN @startDate AND @endDate
+    END
+    ELSE IF @id_proyecto IS NOT NULL
+    BEGIN
+        SELECT 
+            t.nombre_tarea AS nombre_tarea,
+            u.nombre AS nombre_usuario,
+            t.fecha_creacion,
+            t.fecha_limite
+        FROM Tareas t
+        JOIN Usuarios_Tareas ut ON t.id = ut.tarea_id
+        JOIN Usuarios u ON ut.usuario_id = u.id
+        WHERE t.proyecto_id = @id_proyecto
+        AND t.fecha_creacion BETWEEN @startDate AND @endDate
+    END
+END
+
+
+---<<> Prodedimientos almacernados controlados<><>---

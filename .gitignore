@@ -1,6 +1,10 @@
 # Dependencias de Node.js
 node_modules/
 
+# Keep public folder but ignore uploads
+public/uploads/*
+!public/uploads/.gitkeep
+public/
 # Archivos de entorno
 .env
 .env.local

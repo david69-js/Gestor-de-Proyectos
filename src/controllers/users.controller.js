@@ -22,12 +22,14 @@ async function getUserById(id, id_organizacion) {
 
 async function changePassword(userId, passwordData) {
     const { contrasena_actual, nueva_contrasena } = passwordData;
+    const pool = await getConnection();
+    const transaction = pool.transaction();
 
     try {
-        const pool = await getConnection();
+        await transaction.begin();
 
         // Get current user
-        const user = await pool.request()
+        const user = await transaction.request()
             .input('id', userId)
             .execute('sp_CompararContrasenaPorId');
 
@@ -45,47 +47,54 @@ async function changePassword(userId, passwordData) {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(nueva_contrasena, salt);
 
-        // Update password using stored procedure
-        await pool.request()
+        // Update password
+        await transaction.request()
             .input('userId', userId)
             .input('nueva_contrasena', hashedPassword)
             .execute('sp_CambiarContrasena');
 
+        await transaction.commit();
         return { message: 'Password updated successfully' };
     } catch (error) {
+        await transaction.rollback();
         console.error('Error changing password:', error);
         throw error;
     }
 }
 
 async function deleteUser(userId) {
-    try {
-        const pool = await getConnection();
+    const pool = await getConnection();
+    const transaction = pool.transaction();
 
-        // Eliminar el usuario
-        const result = await pool.request()
+    try {
+        await transaction.begin();
+
+        const result = await transaction.request()
             .input('id_usuario', userId)
             .execute('sp_EliminarUsuario');
 
         if (result.rowsAffected[0] > 0) {
+            await transaction.commit();
             return { message: 'User and related records deleted successfully' };
         } else {
             throw new Error('User not found');
         }
     } catch (error) {
+        await transaction.rollback();
         console.error('Error deleting user:', error);
         throw error;
     }
 }
 
 async function updateUserDetails(userId, userDetails) {
-    const { nombre ,imagen_perfil, numero_telefono, fecha_nacimiento } = userDetails;
-    console.log('Received user details:', userDetails);
+    const { nombre, imagen_perfil, numero_telefono, fecha_nacimiento } = userDetails;
     const pool = await getConnection();
+    const transaction = pool.transaction();
 
     try {
-        // Update user details using the stored procedure
-        await pool.request()
+        await transaction.begin();
+
+        await transaction.request()
             .input('id', userId)
             .input('nombre', nombre || null)
             .input('imagen_perfil', imagen_perfil || null)
@@ -93,8 +102,10 @@ async function updateUserDetails(userId, userDetails) {
             .input('fecha_nacimiento', fecha_nacimiento || null)
             .execute('sp_ActualizarUsuario');
 
+        await transaction.commit();
         console.log('User details updated successfully');
     } catch (error) {
+        await transaction.rollback();
         console.error('Error updating user details:', error);
         throw error;
     }
