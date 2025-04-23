@@ -1,14 +1,43 @@
 const express = require('express');
 const router = express.Router();
-const reportsController = require('../controllers/reports.controller');
+const { 
+    getProjectProgressReport,
+    getTimeTrackingReport,
+    getUserParticipationReport
+} = require('../controllers/reports.controller');
 
-// Ruta para reporte de progreso de proyectos
-router.get('/projects/:projectId/progress', reportsController.getProjectProgressReport);
+// Reporte de progreso de proyectos (por proyecto u organización)
+router.get('/projects/:projectId/progress', async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const { organizationId } = req.query;
+        const report = await getProjectProgressReport(projectId, organizationId);
+        res.json(report);
+    } catch (error) {
+        res.status(500).json({ error: 'Error al generar el reporte de progreso' });
+    }
+});
 
-// Ruta para reporte de tiempo/tareas
-router.get('/users/:userId/time-tracking', reportsController.getTimeTrackingReport);
+// Reporte de seguimiento de tiempo (por usuario o proyecto)
+router.get('/time-tracking', async (req, res) => {
+    try {
+        const { userId, startDate, endDate, projectId } = req.query;
+        const report = await getTimeTrackingReport(userId, startDate, endDate, projectId);
+        res.json(report);
+    } catch (error) {
+        res.status(500).json({ error: 'Error al generar el reporte de tiempo' });
+    }
+});
 
-// Ruta para reporte de participación de usuarios
-router.get('/organizations/:organizationId/user-participation', reportsController.getUserParticipationReport);
+// Reporte de participación de usuarios (por organización o proyecto)
+router.get('/user-participation', async (req, res) => {
+    try {
+        const { organizationId, projectId } = req.query;
+        const report = await getUserParticipationReport(organizationId, projectId);
+        res.json(report);
+    } catch (error) {
+        res.status(500).json({ error: 'Error al generar el reporte de participación' });
+    }
+});
 
 module.exports = router;
