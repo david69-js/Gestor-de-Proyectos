@@ -162,7 +162,7 @@ BEGIN
         proyecto_id INT NULL,  -- Puede ser NULL si es una invitación a un equipo
         rol_id INT NOT NULL,  -- Rol asignado al usuario al aceptar la invitación
         estado VARCHAR(20) DEFAULT 'pendiente' CHECK (estado IN ('pendiente', 'aceptada', 'rechazada')),
-        codigo_confirmacion VARCHAR(50) NOT NULL,  -- Código único para la invitación
+        codigo_confirmacion VARCHAR(512) NOT NULL,  -- Código único para la invitación
         fecha_creacion DATETIME DEFAULT GETDATE(),
         FOREIGN KEY (proyecto_id) REFERENCES Proyectos(id) ON DELETE CASCADE,
         FOREIGN KEY (rol_id) REFERENCES Roles(id) ON DELETE CASCADE
@@ -374,7 +374,8 @@ CREATE PROCEDURE sp_RegistrarUsuarioConInvitacion
     @nombre_organizacion NVARCHAR(100),
     @id_rol INT,
     @id_organizacion INT = NULL,
-    @id_proyecto INT = NULL
+    @id_proyecto INT = NULL,
+    @codigo_invitacion VARCHAR(512) = NULL  
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -418,6 +419,14 @@ BEGIN
             PRINT '⚠️ Usuario es colaborador o cliente, pero no se asignó a ningún proyecto (id_proyecto NULL).';
         END
     END
+
+     IF @codigo_invitacion IS NOT NULL
+        BEGIN
+            UPDATE Invitaciones
+            SET estado = 'aceptada'
+            WHERE codigo_confirmacion = @codigo_invitacion
+            AND correo = @correo;
+        END
 
     SELECT @id_usuario AS usuario_id, @id_organizacion AS organizacion_id;
 END

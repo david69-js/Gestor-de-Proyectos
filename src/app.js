@@ -12,9 +12,8 @@ const anunciosRoutes = require('./routes/anuncios');
 const usersRoutes = require('./routes/users');
 const projectsRoutes = require('./routes/projects');
 const tasksRoutes = require('./routes/tasks');
-const calendarRoutes = require('./routes/calendar');
 const notificationsRoutes = require('./routes/notificaciones');
-const reportsRoutes = require('./routes/reportes'); // Nueva importación
+const reportsRoutes = require('./routes/reportes');
 
 const app = express();
 
@@ -40,7 +39,6 @@ app.use('/api/invitaciones', verifyToken, invitacionesRoutes);
 app.use('/api/users', verifyToken, usersRoutes);
 app.use('/api/projects', verifyToken, projectsRoutes);
 app.use('/api/tasks', verifyToken, tasksRoutes);
-app.use('/api/calendar', verifyToken, calendarRoutes);
 app.use('/api/notificaciones', verifyToken, notificationsRoutes);
 app.use('/api/anuncios', verifyToken, anunciosRoutes);
 app.use('/api/reports', verifyToken, reportsRoutes); // Nueva ruta para reportes
