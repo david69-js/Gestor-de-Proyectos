@@ -118,15 +118,30 @@ async function updateTaskByProjectOrg(taskData, id_project, id_tarea, id_organiz
 
 async function deleteTaskByProjectOrg(id_tarea, id_project, id_organizacion, id_usuario) {
     const pool = await getConnection();
+    const transaction = pool.transaction();
+
     try {
-        const result = await pool.request()
+        await transaction.begin();
+        
+        const result = await transaction.request()
             .input('id_tarea', id_tarea)
             .input('id_proyecto', id_project)
             .input('id_organizacion', id_organizacion)
             .execute('sp_EliminarTarea');
 
+        // Verificación adicional
+        const verificacion = await transaction.request()
+            .input('id_tarea', id_tarea)
+            .query('SELECT COUNT(*) as existe FROM Tareas WHERE id = @id_tarea');
+
+        if (verificacion.recordset[0].existe > 0) {
+            throw new Error('No se pudo verificar la eliminación');
+        }
+
+        await transaction.commit();
         return result.recordset[0];
     } catch (error) {
+        await transaction.rollback();
         console.error('Error deleting task:', error);
         throw error;
     }
@@ -134,15 +149,32 @@ async function deleteTaskByProjectOrg(id_tarea, id_project, id_organizacion, id_
 
 async function assignTaskToUser(id_tarea, id_usuario, id_project, id_organizacion) {
     const pool = await getConnection();
+    const transaction = pool.transaction();
+
     try {
-        const result = await pool.request()
-             .input('id_tarea', id_tarea)
-             .input('id_usuario', id_usuario)
-             .input('id_proyecto', id_project)
-             .input('id_organizacion', id_organizacion)
-             .execute('sp_AsignarUsuarioATarea');
+        await transaction.begin();
+        
+        const result = await transaction.request()
+            .input('id_tarea', id_tarea)
+            .input('id_usuario', id_usuario)
+            .input('id_proyecto', id_project)
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_AsignarUsuarioATarea');
+
+        // Verificación adicional
+        const verificacion = await transaction.request()
+            .input('id_tarea', id_tarea)
+            .input('id_usuario', id_usuario)
+            .query('SELECT COUNT(*) as existe FROM Tareas_Usuarios WHERE id_tarea = @id_tarea AND id_usuario = @id_usuario');
+
+        if (!verificacion.recordset[0].existe > 0) {
+            throw new Error('No se pudo verificar la asignación');
+        }
+
+        await transaction.commit();
         return result.recordset;
     } catch (error) {
+        await transaction.rollback();
         console.error('Error assigning user to task:', error);
         throw error;
     }
@@ -150,16 +182,32 @@ async function assignTaskToUser(id_tarea, id_usuario, id_project, id_organizacio
 
 async function unassignTaskFromUser(id_tarea, id_usuario, id_project, id_organizacion) {
     const pool = await getConnection();
+    const transaction = pool.transaction();
+
     try {
-        const result = await pool.request()
+        await transaction.begin();
+        
+        const result = await transaction.request()
             .input('id_tarea', id_tarea)
             .input('id_usuario', id_usuario)
             .input('id_proyecto', id_project)
             .input('id_organizacion', id_organizacion)
             .execute('sp_DesasignarUsuarioTarea');
 
+        // Verificación adicional
+        const verificacion = await transaction.request()
+            .input('id_tarea', id_tarea)
+            .input('id_usuario', id_usuario)
+            .query('SELECT COUNT(*) as existe FROM Tareas_Usuarios WHERE id_tarea = @id_tarea AND id_usuario = @id_usuario');
+
+        if (verificacion.recordset[0].existe > 0) {
+            throw new Error('No se pudo verificar la desasignación');
+        }
+
+        await transaction.commit();
         return result.recordset[0];
     } catch (error) {
+        await transaction.rollback();
         console.error('Error unassigning user from task:', error);
         throw error;
     }
@@ -167,8 +215,12 @@ async function unassignTaskFromUser(id_tarea, id_usuario, id_project, id_organiz
 
 async function addComment(comentario, id_tarea, id_project, id_organizacion, id_usuario) {
     const pool = await getConnection();
+    const transaction = pool.transaction();
+
     try {
-        const result = await pool.request()
+        await transaction.begin();
+        
+        const result = await transaction.request()
             .input('id_tarea', id_tarea)
             .input('id_usuario', id_usuario)
             .input('id_proyecto', id_project)
@@ -176,8 +228,20 @@ async function addComment(comentario, id_tarea, id_project, id_organizacion, id_
             .input('comentario', comentario)
             .execute('sp_AgregarComentario');
 
+        // Verificación adicional
+        const verificacion = await transaction.request()
+            .input('id_tarea', id_tarea)
+            .input('id_usuario', id_usuario)
+            .query('SELECT COUNT(*) as existe FROM Comentarios WHERE id_tarea = @id_tarea AND id_usuario = @id_usuario');
+
+        if (!verificacion.recordset[0].existe > 0) {
+            throw new Error('No se pudo verificar el comentario');
+        }
+
+        await transaction.commit();
         return result.recordset[0];
     } catch (error) {
+        await transaction.rollback();
         console.error('Error adding comment:', error);
         throw error;
     }

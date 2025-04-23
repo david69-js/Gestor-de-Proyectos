@@ -15,15 +15,30 @@ async function obtenerNotificaciones(id_usuario) {
 }
 
 async function marcarComoLeida(id, id_usuario) {
+    const pool = await getConnection();
+    const transaction = pool.transaction();
+
     try {
-        const pool = await getConnection();
-        const result = await pool.request()
+        await transaction.begin();
+
+        const result = await transaction.request()
             .input('id', id)
             .input('usuario_id', id_usuario)
             .execute('sp_MarcarNotificacionComoLeida');
-        
+
+        // Verificación adicional
+        const verificacion = await transaction.request()
+            .input('id', id)
+            .query('SELECT leida FROM Notificaciones WHERE id = @id');
+
+        if (!verificacion.recordset[0] || verificacion.recordset[0].leida !== 1) {
+            throw new Error('No se pudo verificar el cambio de estado');
+        }
+
+        await transaction.commit();
         return { mensaje: 'Notificación marcada como leída' };
     } catch (error) {
+        await transaction.rollback();
         console.error('Error al marcar la notificación:', error);
         throw error;
     }

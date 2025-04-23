@@ -26,7 +26,8 @@
     -- Desasignacion de tareas a usuarios
     -- Comentarios
 
+-- Noficaciones
 
 # Objetivos por alcanzar
+-- Trancisiones
 -- Reportes
--- Noficaciones
