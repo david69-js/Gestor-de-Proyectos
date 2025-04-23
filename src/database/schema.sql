@@ -1590,4 +1590,109 @@ END;
 GO
 
 
+--REPORTES-----
+
+CREATE PROCEDURE sp_GetProjectProgressReport
+    @id_proyecto INT = NULL,
+    @id_organizacion INT = NULL
+AS
+BEGIN
+    IF @id_proyecto IS NOT NULL
+    BEGIN
+        SELECT
+            p.nombre_proyecto AS nombre_proyecto,
+            COUNT(t.id) AS total_tareas,
+            SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) AS tareas_completadas,
+            (SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) * 100.0 / COUNT(t.id)) AS porcentaje_completado
+        FROM Proyectos p
+        LEFT JOIN Tareas t ON p.id = t.proyecto_id
+        LEFT JOIN Estados_Tarea e ON t.estado_id = e.id
+        WHERE p.id = @id_proyecto
+        GROUP BY p.nombre_proyecto
+    END
+    ELSE IF @id_organizacion IS NOT NULL
+    BEGIN
+        SELECT
+            p.nombre_proyecto AS nombre_proyecto,
+            COUNT(t.id) AS total_tareas,
+            SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) AS tareas_completadas,
+            (SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) * 100.0 / COUNT(t.id)) AS porcentaje_completado
+        FROM Proyectos p
+        LEFT JOIN Tareas t ON p.id = t.proyecto_id
+        LEFT JOIN Estados_Tarea e ON t.estado_id = e.id
+        WHERE p.organizacion_id = @id_organizacion
+        GROUP BY p.nombre_proyecto
+    END
+END
+
+CREATE PROCEDURE sp_GetUserParticipationReport
+    @id_organizacion INT,
+    @id_proyecto INT = NULL
+AS
+BEGIN
+    IF @id_proyecto IS NULL
+    BEGIN
+        SELECT
+            u.nombre AS nombre_usuario,
+            COUNT(ut.tarea_id) AS tareas_asignadas,
+            SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) AS tareas_completadas
+        FROM Usuarios u
+        JOIN Usuarios_Tareas ut ON u.id = ut.usuario_id
+        JOIN Tareas t ON ut.tarea_id = t.id
+        JOIN Estados_Tarea e ON t.estado_id = e.id
+        JOIN Usuarios_Organizaciones uo ON u.id = uo.id_usuario
+        WHERE uo.id_organizacion = @id_organizacion
+        GROUP BY u.nombre
+    END
+    ELSE
+    BEGIN
+        SELECT
+            u.nombre AS nombre_usuario,
+            COUNT(ut.tarea_id) AS tareas_asignadas,
+            SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) AS tareas_completadas
+        FROM Usuarios u
+        JOIN Usuarios_Tareas ut ON u.id = ut.usuario_id
+        JOIN Tareas t ON ut.tarea_id = t.id
+        JOIN Estados_Tarea e ON t.estado_id = e.id
+        WHERE t.proyecto_id = @id_proyecto
+        GROUP BY u.nombre
+    END
+END
+
+CREATE PROCEDURE sp_GetTimeTrackingReport
+    @id_usuario INT = NULL,
+    @startDate DATE,
+    @endDate DATE,
+    @id_proyecto INT = NULL
+AS
+BEGIN
+    IF @id_usuario IS NOT NULL
+    BEGIN
+        SELECT 
+            t.nombre_tarea AS nombre_tarea,
+            p.nombre_proyecto AS nombre_proyecto,
+            t.fecha_creacion,
+            t.fecha_limite
+        FROM Tareas t
+        JOIN Proyectos p ON t.proyecto_id = p.id
+        JOIN Usuarios_Tareas ut ON t.id = ut.tarea_id
+        WHERE ut.usuario_id = @id_usuario
+        AND t.fecha_creacion BETWEEN @startDate AND @endDate
+    END
+    ELSE IF @id_proyecto IS NOT NULL
+    BEGIN
+        SELECT 
+            t.nombre_tarea AS nombre_tarea,
+            u.nombre AS nombre_usuario,
+            t.fecha_creacion,
+            t.fecha_limite
+        FROM Tareas t
+        JOIN Usuarios_Tareas ut ON t.id = ut.tarea_id
+        JOIN Usuarios u ON ut.usuario_id = u.id
+        WHERE t.proyecto_id = @id_proyecto
+        AND t.fecha_creacion BETWEEN @startDate AND @endDate
+    END
+END
+
+
 ---<<> Prodedimientos almacernados controlados<><>---
