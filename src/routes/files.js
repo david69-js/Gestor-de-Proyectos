@@ -47,20 +47,65 @@ router.post('/project/:projectId', upload.single('file'), async (req, res) => {
         return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    const pool = await getConnection();
+    let transaction = null;
+
     try {
-        const pool = await getConnection();
-        const result = await pool.request()
+        transaction = pool.transaction();
+        await transaction.begin();
+
+        const result = await transaction.request()
             .input('proyecto_id', req.params.projectId)
             .input('nombre_archivo', req.file.originalname)
             .input('ruta_archivo', req.file.path)
             .query('INSERT INTO Archivos (proyecto_id, nombre_archivo, ruta_archivo) OUTPUT INSERTED.* VALUES (@proyecto_id, @nombre_archivo, @ruta_archivo)');
 
+        await transaction.commit();
         res.status(201).json(result.recordset[0]);
     } catch (error) {
-        // Remove uploaded file if database operation fails
+        if (transaction) await transaction.rollback();
         fs.unlinkSync(req.file.path);
         console.error('Error uploading file:', error);
         res.status(500).json({ error: 'Error uploading file' });
+    }
+});
+
+// Delete file
+router.delete('/:fileId', async (req, res) => {
+    const pool = await getConnection();
+    let transaction = null;
+
+    try {
+        transaction = pool.transaction();
+        await transaction.begin();
+
+        // Get file info before deleting
+        const fileInfo = await transaction.request()
+            .input('id', req.params.fileId)
+            .query('SELECT * FROM Archivos WHERE id = @id');
+
+        if (fileInfo.recordset.length === 0) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        // Delete file record from database
+        await transaction.request()
+            .input('id', req.params.fileId)
+            .query('DELETE FROM Archivos WHERE id = @id');
+
+        // Delete physical file
+        const filePath = fileInfo.recordset[0].ruta_archivo;
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+
+        await transaction.commit();
+        res.json({ message: 'File deleted successfully' });
+    } catch (error) {
+        if (transaction) await transaction.rollback();
+        console.error('Error deleting file:', error);
+        res.status(500).json({ error: 'Error deleting file' });
     }
 });
 
@@ -100,38 +145,6 @@ router.get('/:fileId', async (req, res) => {
     } catch (error) {
         console.error('Error downloading file:', error);
         res.status(500).json({ error: 'Error downloading file' });
-    }
-});
-
-// Delete file
-router.delete('/:fileId', async (req, res) => {
-    try {
-        const pool = await getConnection();
-        
-        // Get file info before deleting
-        const fileInfo = await pool.request()
-            .input('id', req.params.fileId)
-            .query('SELECT * FROM Archivos WHERE id = @id');
-
-        if (fileInfo.recordset.length === 0) {
-            return res.status(404).json({ error: 'File not found' });
-        }
-
-        // Delete file record from database
-        const result = await pool.request()
-            .input('id', req.params.fileId)
-            .query('DELETE FROM Archivos OUTPUT DELETED.* WHERE id = @id');
-
-        // Delete physical file
-        const filePath = fileInfo.recordset[0].ruta_archivo;
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-        }
-
-        res.json({ message: 'File deleted successfully' });
-    } catch (error) {
-        console.error('Error deleting file:', error);
-        res.status(500).json({ error: 'Error deleting file' });
     }
 });
 

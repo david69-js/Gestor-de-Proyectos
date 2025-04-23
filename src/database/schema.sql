@@ -1351,6 +1351,7 @@ GO
 
 
 
+
 DROP TRIGGER IF EXISTS TR_Notificar_Comentario;
 GO
 CREATE TRIGGER TR_Notificar_Comentario
