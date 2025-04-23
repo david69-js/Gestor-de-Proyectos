@@ -576,9 +576,10 @@ CREATE PROCEDURE sp_ObtenerProyectosPorOrganizacion
     @id_organizacion INT
 AS
 BEGIN
-    SELECT * FROM Proyectos WHERE organizacion_id = @id_organizacion;
+    SELECT * FROM Proyectos WHERE id_organizacion = @id_organizacion;
 END;
 GO
+
 
 DROP PROCEDURE IF EXISTS sp_CrearProyecto;
 GO
@@ -608,7 +609,6 @@ BEGIN
     SELECT @id_proyecto AS id_proyecto;
 END;
 GO
-
 
 -- Procedimiento para obtener un proyecto por ID
 DROP PROCEDURE IF EXISTS sp_ObtenerProyectoPorId;
@@ -817,6 +817,7 @@ GO
 
 -- Procedimiento para obtener todas las tareas
 DROP PROCEDURE IF EXISTS sp_ObtenerTareasPorOrganizacion;
+DROP PROCEDURE IF EXISTS sp_ObtenerTareasPorOrganizacion;
 GO
 CREATE PROCEDURE sp_ObtenerTareasPorOrganizacion
     @id_organizacion INT,
@@ -841,7 +842,6 @@ BEGIN
     WHERE p.id = @id_proyecto;
 END;
 GO
-
 
 DROP PROCEDURE IF EXISTS sp_ObtenerTareaIdPorOrganizacion;
 GO
@@ -873,6 +873,7 @@ BEGIN
     WHERE t.id = @id_tarea;
 END;
 GO
+
 
 
 DROP PROCEDURE IF EXISTS sp_InsertarEstadosTarea;
@@ -988,6 +989,7 @@ BEGIN
     WHERE t.id = @id_tarea;
 END;
 GO
+
 
 -- Delete task procedure
 DROP PROCEDURE IF EXISTS sp_EliminarTarea;
