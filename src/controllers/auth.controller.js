@@ -72,6 +72,7 @@ async function registerUser(userData) {
       .input('id_rol', id_rol)
       .input('id_organizacion', id_organizacion)
       .input('id_proyecto', id_proyecto)
+      .input('codigo_invitacion', token || null )
       .execute('sp_RegistrarUsuarioConInvitacion');
 
     const userId = result.recordset?.[0]?.usuario_id;
