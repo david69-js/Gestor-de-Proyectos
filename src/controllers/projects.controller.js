@@ -2,12 +2,14 @@ const { getConnection } = require('../config/db');
 
 async function getAllProjects(user) {
     let id_organizacion;
+    let id_usuario;
     try {
         id_organizacion = user.id_organizacion;
-
+        id_usuario = user.id; 
         const pool = await getConnection();
         const result = await pool.request()
         .input('id_organizacion', id_organizacion)
+        .input('id_usuario', id_usuario)
         .execute('sp_ObtenerProyectosPorOrganizacion');
 
         return result.recordset;

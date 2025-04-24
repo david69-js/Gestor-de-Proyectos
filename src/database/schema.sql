@@ -573,10 +573,23 @@ GO
 DROP PROCEDURE IF EXISTS sp_ObtenerProyectosPorOrganizacion;
 GO
 CREATE PROCEDURE sp_ObtenerProyectosPorOrganizacion
-    @id_organizacion INT
+    @id_organizacion INT,
+    @id_usuario INT
 AS
 BEGIN
-    SELECT * FROM Proyectos WHERE id_organizacion = @id_organizacion;
+    -- Verificar que el usuario pertenece a la organización
+    IF NOT EXISTS (SELECT 1 FROM Usuarios_Organizaciones 
+                  WHERE id_usuario = @id_usuario AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50003, 'El usuario no pertenece a la organización.', 1;
+    END
+
+    -- Obtener proyectos de la organización donde el usuario SÍ está asignado
+    SELECT P.* 
+    FROM Proyectos P
+    INNER JOIN Usuarios_Proyectos UP ON P.id = UP.id_proyecto
+    WHERE P.id_organizacion = @id_organizacion
+    AND UP.id_usuario = @id_usuario;
 END;
 GO
 
