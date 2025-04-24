@@ -830,7 +830,6 @@ GO
 
 -- Procedimiento para obtener todas las tareas
 DROP PROCEDURE IF EXISTS sp_ObtenerTareasPorOrganizacion;
-DROP PROCEDURE IF EXISTS sp_ObtenerTareasPorOrganizacion;
 GO
 CREATE PROCEDURE sp_ObtenerTareasPorOrganizacion
     @id_organizacion INT,
@@ -848,11 +847,23 @@ BEGIN
         p.nombre_proyecto,
         t.nombre_tarea,
         t.id AS TareaId,
-        t.proyecto_id
+        t.proyecto_id,
+        e.estado AS estado_tarea,
+        STRING_AGG(u.nombre, ', ') AS usuarios_asignados
     FROM Tareas t
     INNER JOIN Proyectos p ON p.id = t.proyecto_id
-    INNER JOIN Organizaciones o ON  o.id = @id_organizacion 
-    WHERE p.id = @id_proyecto;
+    INNER JOIN Organizaciones o ON o.id = @id_organizacion 
+    INNER JOIN Estados_Tarea e ON e.id = t.estado_id
+    LEFT JOIN Usuarios_Tareas ut ON ut.tarea_id = t.id
+    LEFT JOIN Usuarios u ON u.id = ut.usuario_id
+    WHERE p.id = @id_proyecto
+    GROUP BY 
+        p.id,
+        p.nombre_proyecto,
+        t.nombre_tarea,
+        t.id,
+        t.proyecto_id,
+        e.estado;
 END;
 GO
 

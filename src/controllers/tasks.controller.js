@@ -25,11 +25,12 @@ async function getTaskById(projectId, id_organizacion, id_tarea) {
         .input('id_tarea', id_tarea)
         .execute('sp_ObtenerTareaIdPorOrganizacion');
         
-        if (result.recordset[0]) {
-           result.recordset[0];
+        if (result.recordset) {
+          return result.recordset;
         } else {
             res.status(404).json({ error: 'Task not found' });
         }
+        
     } catch (error) {
         console.error('Error getting task:', error);
         res.status(500).json({ error: 'Error getting task' });
