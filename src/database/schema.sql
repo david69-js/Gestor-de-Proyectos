@@ -117,18 +117,6 @@ BEGIN
     );
 END;
 
--- Crear la tabla Eventos solo si no existe <AUNPOR_REVISAR>
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Eventos' AND xtype = 'U')
-BEGIN
-    CREATE TABLE Eventos (
-        id INT PRIMARY KEY IDENTITY(1,1),
-        nombre_evento VARCHAR(255),
-        descripcion VARCHAR(MAX),
-        fecha_evento DATETIME,
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id) ON DELETE CASCADE
-    );
-END
-
 
 -- Crear la tabla Usuarios_Tareas solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Tareas' AND xtype = 'U')
