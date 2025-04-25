@@ -72,20 +72,25 @@ BEGIN
     );
 END;
 
+
 -- Crear la tabla Tareas solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Tareas' AND xtype = 'U')
 BEGIN
     CREATE TABLE Tareas (
         id INT PRIMARY KEY IDENTITY(1,1),
-        proyecto_id INT FOREIGN KEY REFERENCES Proyectos(id) ON DELETE CASCADE,
-        organizacion_id INT FOREIGN KEY REFERENCES Organizaciones(id) ON DELETE CASCADE,
+        proyecto_id INT,
+        organizacion_id INT,
         nombre_tarea VARCHAR(255),
         descripcion VARCHAR(MAX),
         fecha_creacion DATETIME DEFAULT GETDATE(),
         fecha_limite DATETIME,
-        estado_id INT FOREIGN KEY REFERENCES Estados_Tarea(id)
+        estado_id INT,
+        CONSTRAINT FK_Tareas_Proyectos FOREIGN KEY (proyecto_id) REFERENCES Proyectos(id) ON DELETE CASCADE,
+        CONSTRAINT FK_Tareas_Organizaciones FOREIGN KEY (organizacion_id) REFERENCES Organizaciones(id) ON DELETE NO ACTION,
+        CONSTRAINT FK_Tareas_Estados FOREIGN KEY (estado_id) REFERENCES Estados_Tarea(id)
     );
 END;
+
 
 
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Comentarios' AND xtype = 'U')
@@ -93,7 +98,7 @@ BEGIN
     CREATE TABLE Comentarios (
         id INT PRIMARY KEY IDENTITY(1,1),
         tarea_id INT FOREIGN KEY REFERENCES Tareas(id) ON DELETE CASCADE,
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id_usuario) ON DELETE CASCADE,
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id) ON DELETE CASCADE,
         comentario VARCHAR(MAX),
         fecha_comentario DATETIME DEFAULT GETDATE()
     );
@@ -120,7 +125,7 @@ BEGIN
         nombre_evento VARCHAR(255),
         descripcion VARCHAR(MAX),
         fecha_evento DATETIME,
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id_usuario) ON DELETE CASCADE
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id) ON DELETE CASCADE
     );
 END
 
@@ -1607,14 +1612,12 @@ BEGIN
     
     INSERT INTO Notificaciones (
         usuario_id,
-        usuario_origen_id,
         tipo_notificacion,
         referencia_id,
         mensaje
     )
     SELECT 
         uo.id_usuario,
-        i.id_usuario,
         'anuncio',
         i.id_anuncio,
         CONCAT(u.nombre, ' publicó un nuevo anuncio en ', p.nombre_proyecto, ': ', i.titulo)
@@ -1657,7 +1660,7 @@ BEGIN
         FROM Proyectos p
         LEFT JOIN Tareas t ON p.id = t.proyecto_id
         LEFT JOIN Estados_Tarea e ON t.estado_id = e.id
-        WHERE p.organizacion_id = @id_organizacion
+        WHERE p.id_organizacion= @id_organizacion
         GROUP BY p.nombre_proyecto
     END
 END

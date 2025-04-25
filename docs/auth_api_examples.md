@@ -58,7 +58,7 @@ No request body is required for this rout
 {
    {
         "rol": "cliente",
-        "id_organizacion": 3,
+        "id_organizacion": 1,
         "id_proyecto": 1002,
         "email_destino": "david@studio31.io"
     }
