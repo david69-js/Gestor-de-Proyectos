@@ -46,6 +46,7 @@ IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Proyectos' AND xtype = 'U'
 BEGIN
     CREATE TABLE Proyectos (
         id INT PRIMARY KEY IDENTITY(1,1),
+        id_organizacion INT FOREIGN KEY REFERENCES Organizaciones(id) ON DELETE CASCADE,
         nombre_proyecto VARCHAR(255),
         descripcion VARCHAR(MAX),
         fecha_inicio DATETIME DEFAULT GETDATE(),
