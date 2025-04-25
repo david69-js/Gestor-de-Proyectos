@@ -135,7 +135,7 @@ IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Usuarios_Tareas' AND xtype
 BEGIN
     CREATE TABLE Usuarios_Tareas (
         id INT PRIMARY KEY IDENTITY(1,1),
-        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id_usuario) ON DELETE CASCADE,
+        usuario_id INT FOREIGN KEY REFERENCES Usuarios(id) ON DELETE CASCADE,
         tarea_id INT FOREIGN KEY REFERENCES Tareas(id) ON DELETE CASCADE,
         fecha_asignacion DATETIME DEFAULT GETDATE()
     );
