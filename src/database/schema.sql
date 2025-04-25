@@ -41,6 +41,15 @@ BEGIN
     );
 END;
 
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Organizaciones' AND xtype = 'U')
+BEGIN
+CREATE TABLE Organizaciones (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    nombre VARCHAR(255) NOT NULL,
+    fecha_creacion DATETIME DEFAULT GETDATE()
+);
+END;
+
 -- Crear la tabla Proyectos solo si no existe
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Proyectos' AND xtype = 'U')
 BEGIN
@@ -201,15 +210,6 @@ CREATE TABLE Usuarios_Proyectos (
     CONSTRAINT FK_Usuarios_Proyectos_Proyecto FOREIGN KEY (id_proyecto)
         REFERENCES Proyectos(id)
         ON DELETE CASCADE
-);
-END;
-
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name = 'Organizaciones' AND xtype = 'U')
-BEGIN
-CREATE TABLE Organizaciones (
-    id INT PRIMARY KEY IDENTITY(1,1),
-    nombre VARCHAR(255) NOT NULL,
-    fecha_creacion DATETIME DEFAULT GETDATE()
 );
 END;
 
