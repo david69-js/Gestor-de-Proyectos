@@ -31,8 +31,8 @@ router.get('/project/:projectId/tareas/:tareaId', async (req, res) => {
 router.post('/project/:projecId/tareas', async (req, res) => {
     try {
         const id_project = req.params.projecId;
-        const {id_organizacion, id} = req.user;
-        
+        const id = req.user.id;
+        const id_organizacion = req.user.id_organizacion;
         const newTask = await tasksController.createTaskByProjectOrg(req.body, id_project, id_organizacion, id);
         res.status(201).json(newTask);
     } catch (error) {
