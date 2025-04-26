@@ -9,12 +9,18 @@ const baseConfig = {
   password: process.env.DB_PASSWORD,
   server: process.env.DB_SERVER,
   port: parseInt(process.env.DB_PORT),
+  pool: {
+    max: 10,
+    min: 0,
+    idleTimeoutMillis: 30000
+  },
   options: {
     encrypt: false,
-    trustServerCertificate: true,
-    enableArithAbort: true
+    trustServerCertificate: true
   }
 };
+
+console.log(baseConfig)
 
 async function getConnection() {
   let pool;
