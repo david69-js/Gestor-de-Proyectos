@@ -2,14 +2,17 @@ const express = require('express');
 const upload = require('../config/uploadConfig');
 const router = express.Router();
 
-router.post('/', upload.single('upload'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No image uploaded' });
+// Modificado para permitir múltiples archivos
+router.post('/', upload.array('upload', 10), (req, res) => {  // Limite de 10 imágenes, ajusta si es necesario
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'No images uploaded' });
     }
-    // CKEditor expects the URL in the "url" field
-    console.log(req.file);
+    
+    const fileUrls = req.files.map(file => `http://${process.env.HOST}:${process.env.PORT}/uploads/${file.filename}`);
+
+    // Responder con un array de URLs
     res.json({
-        url: `http://${process.env.HOST}:${process.env.PORT}/uploads/${req.file.filename}`
+        urls: fileUrls
     });
 });
 
