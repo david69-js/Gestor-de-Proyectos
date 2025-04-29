@@ -32,6 +32,10 @@ if (!require('fs').existsSync(uploadDir)){
     require('fs').mkdirSync(uploadDir, { recursive: true });
 }
 
+app.get('/', (req, res) => {
+    res.send('hello');
+});
+
 // Static files directory for uploads
 app.use('/uploads', express.static(uploadDir));
 
