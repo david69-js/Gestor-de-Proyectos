@@ -592,7 +592,7 @@ DROP PROCEDURE IF EXISTS sp_CrearProyecto;
 GO
 CREATE PROCEDURE sp_CrearProyecto
     @nombre_proyecto NVARCHAR(100),
-    @descripcion NVARCHAR(255),
+    @descripcion NVARCHAR(MAX),
     @fecha_fin DATETIME,
     @id_usuario INT,
     @id_organizacion INT

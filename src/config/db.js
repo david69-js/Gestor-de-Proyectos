@@ -20,8 +20,6 @@ const baseConfig = {
   }
 };
 
-console.log(baseConfig)
-
 async function getConnection() {
   let pool;
   try {
