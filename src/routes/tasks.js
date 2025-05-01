@@ -83,7 +83,6 @@ router.delete('/project/:projectId/tareas/:tareaId', async (req, res) => {
     }
 });
 
-// Assign user to task
 router.post('/project/:projectId/tareas/:tareaId/usuario/:userId', async (req, res) => {
     try {
         const {id_organizacion } = req.user;

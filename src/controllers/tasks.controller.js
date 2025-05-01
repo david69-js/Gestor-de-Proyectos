@@ -166,7 +166,7 @@ async function assignTaskToUser(id_tarea, id_usuario, id_project, id_organizacio
         const verificacion = await transaction.request()
             .input('id_tarea', id_tarea)
             .input('id_usuario', id_usuario)
-            .query('SELECT COUNT(*) as existe FROM Tareas_Usuarios WHERE id_tarea = @id_tarea AND id_usuario = @id_usuario');
+            .query('SELECT COUNT(*) as existe FROM Usuarios_Tareas WHERE tarea_id = @id_tarea AND usuario_id = @id_usuario');
 
         if (!verificacion.recordset[0].existe > 0) {
             throw new Error('No se pudo verificar la asignación');
@@ -199,7 +199,7 @@ async function unassignTaskFromUser(id_tarea, id_usuario, id_project, id_organiz
         const verificacion = await transaction.request()
             .input('id_tarea', id_tarea)
             .input('id_usuario', id_usuario)
-            .query('SELECT COUNT(*) as existe FROM Tareas_Usuarios WHERE id_tarea = @id_tarea AND id_usuario = @id_usuario');
+            .query('SELECT COUNT(*) as existe FROM Usuarios_Tareas WHERE tarea_id = @id_tarea AND usuario_id = @id_usuario');
 
         if (verificacion.recordset[0].existe > 0) {
             throw new Error('No se pudo verificar la desasignación');

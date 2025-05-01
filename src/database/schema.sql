@@ -598,26 +598,25 @@ END;
 GO
 
 -- Procedimiento para obtener todos los proyectos
-DROP PROCEDURE IF EXISTS sp_ObtenerProyectosPorOrganizacion;
+-- Procedimiento para obtener usuarios asignados a un proyecto
+DROP PROCEDURE IF EXISTS sp_ObtenerUsuariosPorProyecto;
 GO
-CREATE PROCEDURE sp_ObtenerProyectosPorOrganizacion
-    @id_organizacion INT,
-    @id_usuario INT
+CREATE PROCEDURE sp_ObtenerUsuariosPorProyecto
+    @id_proyecto INT
 AS
 BEGIN
-    -- Verificar que el usuario pertenece a la organización
-    IF NOT EXISTS (SELECT 1 FROM Usuarios_Organizaciones 
-                  WHERE id_usuario = @id_usuario AND id_organizacion = @id_organizacion)
-    BEGIN
-        THROW 50003, 'El usuario no pertenece a la organización.', 1;
-    END
+    SET NOCOUNT ON;
 
-    -- Obtener proyectos de la organización donde el usuario SÍ está asignado
-    SELECT P.* 
-    FROM Proyectos P
-    INNER JOIN Usuarios_Proyectos UP ON P.id = UP.id_proyecto
-    WHERE P.id_organizacion = @id_organizacion
-    AND UP.id_usuario = @id_usuario;
+    SELECT 
+        u.id AS usuario_id,
+        u.nombre AS usuario_nombre,
+        u.correo AS usuario_correo
+    FROM 
+        Usuarios_Proyectos up
+    INNER JOIN 
+        Usuarios u ON up.id_usuario = u.id
+    WHERE 
+        up.id_proyecto = @id_proyecto;
 END;
 GO
 
@@ -659,9 +658,25 @@ CREATE PROCEDURE sp_ObtenerProyectoPorId
     @id_organizacion INT
 AS
 BEGIN
-    SELECT *
-    FROM Proyectos
-    WHERE id = @id_proyecto and id_organizacion = @id_organizacion;
+    SELECT 
+        p.*,
+        u.id AS usuario_id,
+        u.nombre AS usuario_nombre,
+        u.correo AS usuario_correo,
+        r.nombre_rol AS rol_usuario
+    FROM 
+        Proyectos p
+    INNER JOIN 
+        Usuarios_Proyectos up ON p.id = up.id_proyecto
+    INNER JOIN 
+        Usuarios u ON up.id_usuario = u.id
+    INNER JOIN 
+        Usuarios_Organizaciones uo ON u.id = uo.id_usuario
+    INNER JOIN 
+        Roles r ON uo.id_rol = r.id
+    WHERE 
+        p.id = @id_proyecto 
+        AND p.id_organizacion = @id_organizacion;
 END;
 GO
 
@@ -699,8 +714,7 @@ END;
 GO
 
 
-DROP PROCEDURE IF EXISTS sp_EliminarProyecto;
-GO
+-- ... existing code ...
 CREATE PROCEDURE sp_EliminarProyecto
     @id_proyecto INT,
     @id_organizacion INT
@@ -713,13 +727,19 @@ BEGIN
         THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
     END
 
+    -- Desasignar todas las tareas del proyecto
+    DELETE FROM Usuarios_Tareas WHERE tarea_id IN (SELECT id FROM Tareas WHERE proyecto_id = @id_proyecto);
+
+    -- Eliminar tareas del proyecto
+    DELETE FROM Tareas WHERE proyecto_id = @id_proyecto;
+
+    -- Eliminar el proyecto
     DELETE FROM Proyectos WHERE id = @id_proyecto;
     
     -- Return success message
     SELECT 'Proyecto eliminado exitosamente' as message;
 END;
 GO
-
 -- Procedure to add participant
 DROP PROCEDURE IF EXISTS sp_AgregarParticipante;
 GO
@@ -799,8 +819,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Check if relation exists
-
+    -- Verificar que el proyecto pertenece a la organización
     IF NOT EXISTS (SELECT 1 FROM Proyectos 
                   WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
     BEGIN
@@ -813,15 +832,20 @@ BEGIN
         THROW 50001, 'El usuario no está asignado a este proyecto.', 1;
     END
 
-    -- Remove participant
+    -- Desasignar usuario de las tareas del proyecto
+    DELETE FROM Usuarios_Tareas 
+    WHERE usuario_id = @id_usuario AND tarea_id IN (
+        SELECT id FROM Tareas WHERE proyecto_id = @id_proyecto
+    );
+
+    -- Eliminar participante del proyecto
     DELETE FROM Usuarios_Proyectos 
     WHERE id_usuario = @id_usuario AND id_proyecto = @id_proyecto;
 
-    -- Return success message
-    SELECT 'Participante eliminado exitosamente' as message;
+    -- Retornar mensaje de éxito
+    SELECT 'Participante eliminado exitosamente y desasignado de las tareas del proyecto' as message;
 END;
 GO
-
 
 DROP PROCEDURE IF EXISTS sp_ObtenerUsuariosPorProyecto;
 GO

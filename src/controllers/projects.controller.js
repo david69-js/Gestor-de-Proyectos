@@ -20,7 +20,6 @@ async function getAllProjects(user) {
 }
 
 async function getProjectById(id, user) {
-    
     let organizacion_id;
     try {
         organizacion_id = user.id_organizacion;
@@ -32,13 +31,29 @@ async function getProjectById(id, user) {
 
         if (!result.recordset[0]) return null;
 
-        const project = result.recordset[0];
-        const tasks = result.recordsets[1];
-
+        
+        // Agrupar usuarios en un array
+        console.log(result.recordset)
+        const project = {
+            proyecto_id: result.recordset[0].proyecto_id,
+            nombre_proyecto: result.recordset[0].nombre_proyecto,
+            descripcion: result.recordset[0].descripcion,
+            fecha_inicio: result.recordset[0].fecha_inicio,
+            fecha_fin: result.recordset[0].fecha_fin,
+            id_organizacion: result.recordset[0].id_organizacion,
+            usuarios: result.recordset.map(user => ({
+                id_usuario: user.usuario_id,
+                nombre_usuario: user.usuario_nombre,
+                correo: user.usuario_correo,
+                rol_usuario: user.rol_usuario
+            }))
+        };
+        const tasks = result.recordsets[1]
         return {
             ...project,
-            tasks: tasks
-        };
+            tasks:tasks
+
+        };  // Devuelve el proyecto con los usuarios agrupados
     } catch (error) {
         console.error('Error getting project by id:', error);
         throw error;
