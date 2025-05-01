@@ -521,11 +521,45 @@ BEGIN
         THROW 50001, 'El usuario no pertenece a la organizacion', 1;
     END
 
-    SELECT *
-    FROM Usuarios
-    WHERE id = @id_usuario;
+    SELECT 
+        u.*,
+        r.nombre_rol AS rol
+    FROM 
+        Usuarios u
+    INNER JOIN 
+        Usuarios_Organizaciones uo ON u.id = uo.id_usuario
+    INNER JOIN 
+        Roles r ON uo.id_rol = r.id
+    WHERE 
+        u.id = @id_usuario
+        AND uo.id_organizacion = @id_organizacion;
 END;
 GO
+
+DROP PROCEDURE IF EXISTS sp_ObtenerUsuariosPorOrganizacion;
+GO
+CREATE PROCEDURE sp_ObtenerUsuariosPorOrganizacion
+    @id_organizacion INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        u.id AS id_usuario,
+        u.nombre AS nombre_usuario,
+        u.correo,
+        r.nombre_rol AS rol
+    FROM 
+        Usuarios u
+    INNER JOIN 
+        Usuarios_Organizaciones uo ON u.id = uo.id_usuario
+    INNER JOIN 
+        Roles r ON uo.id_rol = r.id
+    WHERE 
+        uo.id_organizacion = @id_organizacion;
+END;
+GO
+
 
 -- Procedimiento para eliminar un usuario
 DROP PROCEDURE IF EXISTS sp_EliminarUsuario;
@@ -636,7 +670,7 @@ GO
 CREATE PROCEDURE sp_ActualizarProyecto
     @id_proyecto INT,
     @nombre_proyecto NVARCHAR(100) = NULL,
-    @descripcion NVARCHAR(255) = NULL,
+    @descripcion NVARCHAR(MAX) = NULL,
     @fecha_fin DATETIME = NULL,
     @id_organizacion INT
 AS
@@ -861,37 +895,56 @@ BEGIN
 END;
 GO
 
+
+DROP PROCEDURE IF EXISTS sp_ObtenerTareaIdPorOrganizacion;
 DROP PROCEDURE IF EXISTS sp_ObtenerTareaIdPorOrganizacion;
 GO
+
 CREATE PROCEDURE sp_ObtenerTareaIdPorOrganizacion
     @id_tarea INT,
     @id_organizacion INT,
     @id_proyecto INT
 AS
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Proyectos 
-        WHERE id_organizacion = @id_organizacion AND id = @id_proyecto)
+    -- Validación de proyecto en la organización
+    IF NOT EXISTS (
+        SELECT 1 FROM Proyectos 
+        WHERE id_organizacion = @id_organizacion AND id = @id_proyecto
+    )
     BEGIN
-        THROW 50001, 'El proyecto no existe o no es parte de la organizacion.', 1;
+        THROW 50001, 'El proyecto no existe o no es parte de la organización.', 1;
     END
 
-    IF NOT EXISTS (SELECT 1 FROM Tareas
-        WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    -- Validación de tarea en el proyecto
+    IF NOT EXISTS (
+        SELECT 1 FROM Tareas
+        WHERE id = @id_tarea AND proyecto_id = @id_proyecto
+    )
     BEGIN
         THROW 50001, 'La tarea no existe o no es parte del proyecto.', 1;
     END
 
+    -- Consulta principal sin GROUP BY
     SELECT 
         p.id AS proyecto_id,
         p.nombre_proyecto,
-        t.*
+        t.*,
+        o.id AS id_organizacion,
+        e.estado AS estad_tarea,
+        o.nombre AS nombre_organizacion,
+        (
+            SELECT STRING_AGG(u.nombre, ', ')
+            FROM Usuarios_Tareas ut
+            INNER JOIN Usuarios u ON u.id = ut.usuario_id
+            WHERE ut.tarea_id = t.id
+        ) AS usuarios_asignados
     FROM Tareas t
     INNER JOIN Proyectos p ON p.id = t.proyecto_id
-    INNER JOIN Organizaciones o ON  o.id = @id_organizacion 
+    INNER JOIN Organizaciones o ON o.id = @id_organizacion
+    INNER JOIN Estados_Tarea e ON e.id = t.estado_id
     WHERE t.id = @id_tarea;
 END;
 GO
-
 
 
 DROP PROCEDURE IF EXISTS sp_InsertarEstadosTarea;
@@ -922,7 +975,7 @@ CREATE PROCEDURE sp_CrearTarea
     @id_organizacion INT,
     @id_usuario INT,
     @nombre_tarea NVARCHAR(100),
-    @descripcion NVARCHAR(255),
+    @descripcion NVARCHAR(MAX),
     @fecha_limite DATETIME,
     @estado_id INT -- Ensure 'estado_id' is correctly used
 AS
@@ -1034,6 +1087,9 @@ BEGIN
         THROW 50002, 'La tarea no existe o no pertenece al proyecto.', 1;
     END
 
+    -- Eliminar comentarios asociados a la tarea
+    DELETE FROM Comentarios WHERE tarea_id = @id_tarea;
+
     -- Eliminar asignaciones de usuarios a la tarea
     DELETE FROM Usuarios_Tareas WHERE tarea_id = @id_tarea;
 
@@ -1044,6 +1100,7 @@ BEGIN
     SELECT 'Tarea eliminada exitosamente' AS message;
 END;
 GO
+
 
 
 -- Assign user to task procedure

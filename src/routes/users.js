@@ -4,7 +4,8 @@ const {
     getUserById,
     deleteUser,
     changePassword,
-    updateUserDetails
+    updateUserDetails,
+    getUsersByOrganization // Importar el nuevo controlador
 } = require('../controllers/users.controller.js');
 const upload = require('../config/uploadConfig');
 
@@ -56,6 +57,18 @@ router.delete('/', async (req, res) => {
     } catch (error) {
         console.error('Error deleting user:', error);
         res.status(404).json({ error: error.message });
+    }
+});
+
+// Get all users by organization
+router.get('/organization/users', async (req, res) => {
+    try {
+        const id_organizacion = req.user.id_organizacion;
+        const users = await getUsersByOrganization(id_organizacion);
+        res.json(users);
+    } catch (error) {
+        console.error('Error getting users by organization:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 

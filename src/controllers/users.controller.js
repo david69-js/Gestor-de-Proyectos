@@ -20,6 +20,20 @@ async function getUserById(id, id_organizacion) {
     }
 }
 
+async function getUsersByOrganization(id_organizacion) {
+    try {
+        const pool = await getConnection();
+        const result = await pool.request()
+            .input('id_organizacion', id_organizacion)
+            .execute('sp_ObtenerUsuariosPorOrganizacion');
+        
+        return result.recordset;
+    } catch (error) {
+        console.error('Error getting users by organization:', error);
+        throw error;
+    }
+}
+
 async function changePassword(userId, passwordData) {
     const { contrasena_actual, nueva_contrasena } = passwordData;
     const pool = await getConnection();
@@ -114,5 +128,6 @@ module.exports = {
     getUserById,
     deleteUser,
     changePassword,
-    updateUserDetails
+    updateUserDetails,
+    getUsersByOrganization
 };
