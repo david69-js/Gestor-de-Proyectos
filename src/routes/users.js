@@ -35,7 +35,7 @@ router.post('/change-password', async (req, res) => {
 
 router.put('/update-user', upload.single('imagen_perfil') ,async (req, res) => {
     try {
-        const imagen_perfil = req.file ? `/uploads/${req.file.filename}` : null;
+        const imagen_perfil = req.file ? `/uploads/${req.file.filename}` : req.body.imagen_perfil;
 
         // Agregar imagen a req.body para la lógica de update
         req.body.imagen_perfil = imagen_perfil;

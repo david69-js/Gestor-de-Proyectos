@@ -31,9 +31,6 @@ async function getProjectById(id, user) {
 
         if (!result.recordset[0]) return null;
 
-        
-        // Agrupar usuarios en un array
-        console.log(result.recordset)
         const project = {
             proyecto_id: result.recordset[0].proyecto_id,
             nombre_proyecto: result.recordset[0].nombre_proyecto,
