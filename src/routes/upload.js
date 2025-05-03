@@ -10,7 +10,7 @@ router.post('/', upload.array('upload', 10), (req, res) => {  // Limite de 10 im
         return res.status(400).json({ error: 'No images uploaded' });
     }
     
-    const fileUrls = req.files.map(file => `${BASE_URL}/api/uploads/${file.filename}`);
+    const fileUrls = req.files.map(file => `${BASE_URL}/uploads/${file.filename}`);
 
     res.json({
         urls: fileUrls

@@ -13,7 +13,7 @@ const upload = require('../config/uploadConfig');
 router.post('/register',upload.single('imagen_perfil'),async (req, res) => {
     const BASE_URL = process.env.BASE_URL;
     try {
-        const imagen_perfil = req.file ? `${BASE_URL}/api/uploads/${req.file.filename}` : null;
+        const imagen_perfil = req.file ? `${BASE_URL}/uploads/${req.file.filename}` : null;
 
         // Agregar imagen a req.body para la lógica de update
         req.body.imagen_perfil = imagen_perfil;
