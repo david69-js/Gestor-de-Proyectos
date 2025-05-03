@@ -43,11 +43,11 @@ app.get('/', (req, res) => {
 });
 
 // Servir archivos estáticos desde /upload
-app.use('/uploads', express.static(uploadDir));
+app.use('/api/uploads', express.static(uploadDir));
 
 // Rutas públicas
 app.use('/api/auth', authRoutes);
-app.use('/api/upload', uploadRoutes);
+app.use('/api/uploadfile', uploadRoutes);
 
 // Rutas protegidas
 app.use('/api/invitaciones', verifyToken, invitacionesRoutes);
