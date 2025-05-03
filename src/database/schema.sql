@@ -1255,6 +1255,47 @@ BEGIN
 END;
 GO
 
+DROP PROCEDURE IF EXISTS sp_ObtenerComentariosPorTarea;
+GO
+CREATE PROCEDURE sp_ObtenerComentariosPorTarea
+    @id_tarea INT,
+    @id_proyecto INT,
+    @id_organizacion INT,
+    @id_usuario INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar que el proyecto existe y pertenece a la organización
+    IF NOT EXISTS (SELECT 1 FROM Proyectos 
+                   WHERE id = @id_proyecto AND id_organizacion = @id_organizacion)
+    BEGIN
+        THROW 50001, 'El proyecto no existe o no pertenece a la organización.', 1;
+    END
+
+    -- Validar que la tarea existe y pertenece al proyecto
+    IF NOT EXISTS (SELECT 1 FROM Tareas 
+                   WHERE id = @id_tarea AND proyecto_id = @id_proyecto)
+    BEGIN
+        THROW 50002, 'La tarea no existe o no pertenece al proyecto.', 1;
+    END
+
+    -- Obtener comentarios de la tarea
+    SELECT 
+        c.id AS comentario_id,
+        c.comentario AS comentario_texto,
+        c.fecha_comentario AS comentario_fecha,
+        u.id AS usuario_id,
+        u.nombre AS usuario_nombre
+    FROM 
+        Comentarios c
+    INNER JOIN 
+        Usuarios u ON c.usuario_id = u.id
+    WHERE 
+        c.tarea_id = @id_tarea;
+END;
+GO
+
 
 DROP PROCEDURE IF EXISTS sp_CrearAnuncio;
 GO

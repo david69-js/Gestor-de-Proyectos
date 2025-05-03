@@ -220,7 +220,6 @@ async function addComment(comentario, id_tarea, id_project, id_organizacion, id_
 
     try {
         await transaction.begin();
-        
         const result = await transaction.request()
             .input('id_tarea', id_tarea)
             .input('id_usuario', id_usuario)
@@ -233,7 +232,7 @@ async function addComment(comentario, id_tarea, id_project, id_organizacion, id_
         const verificacion = await transaction.request()
             .input('id_tarea', id_tarea)
             .input('id_usuario', id_usuario)
-            .query('SELECT COUNT(*) as existe FROM Comentarios WHERE id_tarea = @id_tarea AND id_usuario = @id_usuario');
+            .query('SELECT COUNT(*) as existe FROM Comentarios WHERE tarea_id = @id_tarea AND usuario_id = @id_usuario');
 
         if (!verificacion.recordset[0].existe > 0) {
             throw new Error('No se pudo verificar el comentario');
@@ -248,6 +247,21 @@ async function addComment(comentario, id_tarea, id_project, id_organizacion, id_
     }
 }
 
+async function getCommentsByTask(id_tarea, id_proyecto, id_organizacion, id_usuario) {
+    const pool = await getConnection();
+    try {
+        const result = await pool.request()
+            .input('id_tarea', id_tarea)
+            .input('id_proyecto', id_proyecto)
+            .input('id_organizacion', id_organizacion)
+            .input('id_usuario', id_usuario)
+            .execute('sp_ObtenerComentariosPorTarea');
+        return result.recordset;
+    } catch (error) {
+        console.error('Error getting comments by task:', error);
+        throw error;
+    }
+}
 
 module.exports = {
     getAllTasksByOrganizacion,
@@ -257,5 +271,6 @@ module.exports = {
     deleteTaskByProjectOrg,
     assignTaskToUser,
     addComment,
+    getCommentsByTask,
     unassignTaskFromUser  // Add the new function to exports
 };
