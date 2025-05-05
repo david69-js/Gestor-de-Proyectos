@@ -22,6 +22,17 @@ async function createInvitation(req, res) {
       return res.status(400).json({ message: 'Se requiere un correo de destino.' });
     }
 
+      const userCheck = await pool.request()
+      .input('email', email_destino)
+      .query(`
+        SELECT COUNT(*) AS count FROM Usuarios
+        WHERE correo = @email;
+      `);
+
+    if (userCheck.recordset[0].count > 0) {
+      return res.status(400).json({ message: 'El usuario ya es parte de una organización.' });
+    }
+    
     // Iniciar transacción
     transaction = pool.transaction();
     await transaction.begin();
@@ -31,12 +42,14 @@ async function createInvitation(req, res) {
       rol,
       id_organizacion,
       nombre_organizacion,
+      email_invitado: email_destino,
       id_proyecto: id_proyecto || null
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     // Replace the current query execution with this parameterized version
+   
     await transaction.request()
       .input('correo', email_destino)
       .input('proyecto_id', id_proyecto || null)
@@ -50,7 +63,7 @@ async function createInvitation(req, res) {
       `);
 
     // Construir el enlace de invitación
-    const url_invitation = `http://${process.env.BASE_URL}/invitacion/${token}`;
+    const url_invitation = `${process.env.BASE_URL_FRONT}/registro?invitacion=${token}`;
 
     const mailOptions = {
       from: process.env.GMAIL_USER,

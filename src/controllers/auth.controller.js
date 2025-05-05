@@ -129,6 +129,7 @@ async function loginUser(userData) {
     const token = jwt.sign(
       { 
         id: userDetails.id,
+        organizacion: userDetails.nombre_organizacion,
         id_organizacion: userDetails.id_organizacion,
         rol: userDetails.nombre_rol
       },

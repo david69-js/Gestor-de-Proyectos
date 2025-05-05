@@ -20,13 +20,24 @@ async function getTaskById(projectId, id_organizacion, id_tarea) {
     try {
         const pool = await getConnection();
         const result = await pool.request()
-        .input('id_proyecto', projectId)
-        .input('id_organizacion', id_organizacion)
-        .input('id_tarea', id_tarea)
-        .execute('sp_ObtenerTareaIdPorOrganizacion');
+            .input('id_proyecto', projectId)
+            .input('id_organizacion', id_organizacion)
+            .input('id_tarea', id_tarea)
+            .execute('sp_ObtenerTareaIdPorOrganizacion');
         
+        console.log(result);
         if (result.recordset) {
-          return result.recordset[0];
+            // Obtener la información de la tarea
+            const taskInfo = result.recordset[0];
+
+            // Transformar los usuarios asignados en el formato deseado
+            const usuariosAsignados = result.recordset.map(row => ({ nombre: row.usuario_asignado, usuario_id: row.usuario_id }));
+
+            // Retornar la información de la tarea junto con los usuarios asignados
+            return {
+                ...taskInfo,
+                usuariosAsignados
+            };
         } else {
             res.status(404).json({ error: 'Task not found' });
         }

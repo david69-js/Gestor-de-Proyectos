@@ -920,10 +920,9 @@ END;
 GO
 
 
-DROP PROCEDURE IF EXISTS sp_ObtenerTareaIdPorOrganizacion;
+
 DROP PROCEDURE IF EXISTS sp_ObtenerTareaIdPorOrganizacion;
 GO
-
 CREATE PROCEDURE sp_ObtenerTareaIdPorOrganizacion
     @id_tarea INT,
     @id_organizacion INT,
@@ -948,7 +947,7 @@ BEGIN
         THROW 50001, 'La tarea no existe o no es parte del proyecto.', 1;
     END
 
-    -- Consulta principal sin GROUP BY
+    -- Consulta principal
     SELECT 
         p.id AS proyecto_id,
         p.nombre_proyecto,
@@ -956,16 +955,14 @@ BEGIN
         o.id AS id_organizacion,
         e.estado AS estad_tarea,
         o.nombre AS nombre_organizacion,
-        (
-            SELECT STRING_AGG(u.nombre, ', ')
-            FROM Usuarios_Tareas ut
-            INNER JOIN Usuarios u ON u.id = ut.usuario_id
-            WHERE ut.tarea_id = t.id
-        ) AS usuarios_asignados
+        u.id AS usuario_id,  -- Añadir el ID del usuario
+        u.nombre AS usuario_asignado
     FROM Tareas t
     INNER JOIN Proyectos p ON p.id = t.proyecto_id
     INNER JOIN Organizaciones o ON o.id = @id_organizacion
     INNER JOIN Estados_Tarea e ON e.id = t.estado_id
+    INNER JOIN Usuarios_Tareas ut ON ut.tarea_id = t.id
+    INNER JOIN Usuarios u ON u.id = ut.usuario_id
     WHERE t.id = @id_tarea;
 END;
 GO
