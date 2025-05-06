@@ -1738,7 +1738,8 @@ GO
 
 
 --REPORTES-----
-
+DROP PROCEDURE IF EXISTS sp_GetProjectProgressReport;
+GO
 CREATE PROCEDURE sp_GetProjectProgressReport
     @id_proyecto INT = NULL,
     @id_organizacion INT = NULL
@@ -1748,29 +1749,46 @@ BEGIN
     BEGIN
         SELECT
             p.nombre_proyecto AS nombre_proyecto,
-            COUNT(t.id) AS total_tareas,
-            SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) AS tareas_completadas,
-            (SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) * 100.0 / COUNT(t.id)) AS porcentaje_completado
+            t.id AS tarea_id,
+            t.nombre_tarea AS nombre_tarea,
+            t.descripcion AS descripcion_tarea,
+            t.fecha_creacion AS fecha_creacion_tarea,
+            t.fecha_limite AS fecha_limite_tarea,
+            e.estado AS estado_tarea,
+            e.id AS estado_id,
+            STRING_AGG(u.nombre, ', ') AS asignados
         FROM Proyectos p
         LEFT JOIN Tareas t ON p.id = t.proyecto_id
         LEFT JOIN Estados_Tarea e ON t.estado_id = e.id
+        LEFT JOIN Usuarios_Tareas ut ON t.id = ut.tarea_id
+        LEFT JOIN Usuarios u ON ut.usuario_id = u.id
         WHERE p.id = @id_proyecto
-        GROUP BY p.nombre_proyecto
+        GROUP BY p.nombre_proyecto, t.id, t.nombre_tarea, t.descripcion, t.fecha_creacion, t.fecha_limite, e.estado, e.id
+        ORDER BY e.id, t.id
     END
     ELSE IF @id_organizacion IS NOT NULL
     BEGIN
         SELECT
             p.nombre_proyecto AS nombre_proyecto,
-            COUNT(t.id) AS total_tareas,
-            SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) AS tareas_completadas,
-            (SUM(CASE WHEN e.estado = 'Completado' THEN 1 ELSE 0 END) * 100.0 / COUNT(t.id)) AS porcentaje_completado
+            t.id AS tarea_id,
+            t.nombre_tarea AS nombre_tarea,
+            t.descripcion AS descripcion_tarea,
+            t.fecha_creacion AS fecha_creacion_tarea,
+            t.fecha_limite AS fecha_limite_tarea,
+            e.estado AS estado_tarea,
+            e.id AS estado_id,
+            STRING_AGG(u.nombre, ', ') AS asignados
         FROM Proyectos p
         LEFT JOIN Tareas t ON p.id = t.proyecto_id
         LEFT JOIN Estados_Tarea e ON t.estado_id = e.id
-        WHERE p.id_organizacion= @id_organizacion
-        GROUP BY p.nombre_proyecto
+        LEFT JOIN Usuarios_Tareas ut ON t.id = ut.tarea_id
+        LEFT JOIN Usuarios u ON ut.usuario_id = u.id
+        WHERE p.id_organizacion = @id_organizacion
+        GROUP BY p.nombre_proyecto, t.id, t.nombre_tarea, t.descripcion, t.fecha_creacion, t.fecha_limite, e.estado, e.id
+        ORDER BY e.id, t.id
     END
-END
+END;
+GO
 
 CREATE PROCEDURE sp_GetUserParticipationReport
     @id_organizacion INT,

@@ -37,8 +37,6 @@ router.put('/update-user', upload.single('imagen_perfil') ,async (req, res) => {
     const BASE_URL = process.env.BASE_URL;
     try {
         const imagen_perfil = req.file ? `${BASE_URL}/uploads/${req.file.filename}` : req.body.imagen_perfil;
-
-        // Agregar imagen a req.body para la lógica de update
         req.body.imagen_perfil = imagen_perfil;
 
         // Asegúrate que req.user exista (por ejemplo con autenticación previa)
