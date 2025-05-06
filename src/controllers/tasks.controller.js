@@ -24,8 +24,7 @@ async function getTaskById(projectId, id_organizacion, id_tarea) {
             .input('id_organizacion', id_organizacion)
             .input('id_tarea', id_tarea)
             .execute('sp_ObtenerTareaIdPorOrganizacion');
-        
-        console.log(result);
+    
         if (result.recordset) {
             // Obtener la información de la tarea
             const taskInfo = result.recordset[0];
