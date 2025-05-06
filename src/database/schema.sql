@@ -546,7 +546,7 @@ BEGIN
 
     SELECT 
         u.id AS id_usuario,
-        u.nombre AS nombre_usuario,
+        u.nombre,
         u.correo,
         r.nombre_rol AS rol
     FROM 
@@ -598,28 +598,6 @@ END;
 GO
 
 -- Procedimiento para obtener todos los proyectos
--- Procedimiento para obtener usuarios asignados a un proyecto
-DROP PROCEDURE IF EXISTS sp_ObtenerUsuariosPorProyecto;
-GO
-CREATE PROCEDURE sp_ObtenerUsuariosPorProyecto
-    @id_proyecto INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    SELECT 
-        u.id AS usuario_id,
-        u.nombre AS usuario_nombre,
-        u.correo AS usuario_correo
-    FROM 
-        Usuarios_Proyectos up
-    INNER JOIN 
-        Usuarios u ON up.id_usuario = u.id
-    WHERE 
-        up.id_proyecto = @id_proyecto;
-END;
-GO
-
 
 DROP PROCEDURE IF EXISTS sp_CrearProyecto;
 GO
@@ -1279,9 +1257,9 @@ BEGIN
 
     -- Obtener comentarios de la tarea
     SELECT 
-        c.id AS comentario_id,
-        c.comentario AS comentario_texto,
-        c.fecha_comentario AS comentario_fecha,
+        c.id AS id,
+        c.comentario 
+        c.fecha_comentario,
         u.id AS usuario_id,
         u.nombre AS usuario_nombre
     FROM 

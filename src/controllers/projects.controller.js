@@ -39,8 +39,8 @@ async function getProjectById(id, user) {
             fecha_fin: result.recordset[0].fecha_fin,
             id_organizacion: result.recordset[0].id_organizacion,
             usuarios: result.recordset.map(user => ({
-                id_usuario: user.usuario_id,
-                nombre_usuario: user.usuario_nombre,
+                usuario_id: user.usuario_id,
+                nombre: user.usuario_nombre,
                 correo: user.usuario_correo,
                 rol_usuario: user.rol_usuario
             }))
