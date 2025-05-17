@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const tasksController = require('../controllers/tasks.controller');
-const { getIo } = require('../config/socket');
 
 
 // Get all tasks
@@ -36,8 +35,6 @@ router.post('/project/:projecId/tareas', async (req, res) => {
         const id = req.user.id;
         const id_organizacion = req.user.id_organizacion;
         const newTask = await tasksController.createTaskByProjectOrg(req.body, id_project, id_organizacion, id);
-        const io = getIo();
-        io.emit('nueva tarea', newTask);
         res.status(201).json(newTask);
     } catch (error) {
         console.error('Error creating task:', error);
@@ -57,8 +54,7 @@ router.put('/project/:projectId/tareas/:tareaId', async (req, res) => {
         const {id_organizacion, id} = req.user;
         
         const updatedTask = await tasksController.updateTaskByProjectOrg(req.body, id_project, id_tarea, id_organizacion, id);
-        const io = getIo();
-        io.emit('Actualizacion de tarea', updatedTask);
+
         res.status(200).json(updatedTask);
     } catch (error) {
         console.error('Error updating task:', error);
@@ -78,8 +74,6 @@ router.delete('/project/:projectId/tareas/:tareaId', async (req, res) => {
         const {id_organizacion, id} = req.user;
         
         const result = await tasksController.deleteTaskByProjectOrg(id_tarea, id_project, id_organizacion, id);
-        const io = getIo();
-        io.emit('Eliminar tarea', updatedTask);
         res.status(200).json(result);
     } catch (error) {
         console.error('Error deleting task:', error);
@@ -97,8 +91,6 @@ router.post('/project/:projectId/tareas/:tareaId/usuario/:userId', async (req, r
         const {tareaId, userId, projectId} = req.params;
         
         const result = await tasksController.assignTaskToUser(tareaId, userId, projectId, id_organizacion);
-        const io = getIo();
-        io.emit('usuario asignado', result);
         res.status(201).json(result);
     } catch (error) {
         console.error('Error assigning user to task:', error);
@@ -117,8 +109,6 @@ router.delete('/project/:projectId/tareas/:tareaId/usuario/:userId', async (req,
         const {tareaId, userId, projectId} = req.params;
         
         const result = await tasksController.unassignTaskFromUser(tareaId, userId, projectId, id_organizacion);
-        const io = getIo();
-        io.emit('usuario desasignado', result);
         res.status(200).json(result);
     } catch (error) {
         console.error('Error unassigning user from task:', error);
@@ -137,10 +127,6 @@ router.post('/project/:projectId/tareas/:tareaId/comentarios', async (req, res) 
         const {tareaId, projectId} = req.params;
         
         const result = await tasksController.addComment(req.body.comentario, tareaId, projectId, id_organizacion, id);
-        
-        // Emitir evento de nuevo comentario
-        const io = getIo();
-        io.emit('Comentario Creada', result);
 
         res.status(201).json(result);
     } catch (error) {
